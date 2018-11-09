@@ -53,7 +53,6 @@ def get_text(data_entry):
             if isinstance(value, dict):
                 get_text(value)
             elif isinstance(value, list):
-                # print(str([item for item in value]))
                 TEXT.append("".join([str(item) for item in value]))
             else:
                 TEXT.append(value)
@@ -75,32 +74,34 @@ def reduce_vocab(counter):
     return vocab
 
 
-# def load_embeddings(file_path, w2i, embedding_dim=50):
-#     """
-#     Loads the GloVe embeddings.
-#     """
-#
-#     with open(file_path) as f:
-#         embeddings = np.zeros((len(w2i), embedding_dim))
-#
-#         for line in f.readlines():
-#             print(line)
-#             values = line.split()
-#             print(values)
-#             return
-#             word = values[0]
-#             index = w2i.get(word)
-#             if index:
-#                 vector = np.array(values[1:], dtype="float32")
-#                 embeddings[index] = vector
-#     return embeddings
+def load_embeddings(file_path, w2i, embedding_dim=50):
+    """
+    Uses a text file of GloVe embeddings to load all possible embeddings into
+    a dictionary.
+    """
+
+    with open(file_path) as f:
+        embeddings = np.zeros((len(w2i), embedding_dim))
+
+        for line in f.readlines():
+            split_line = line.split()
+            word = split_line[0]
+            index = w2i.get(word)
+
+            if index:
+                embedding = np.array(values[1:], dtype="float32")
+                embeddings[index] = embedding
+    return embeddings
 
 
 def preprocess_data(data, glove_file):
+    """
+    Preprocesses the data by obtaining a vocabulary and the corresponding
+    embeddings.
+    """
     vocab = get_vocab(data)
     w2i = {word: idx for idx, word in enumerate(vocab)}
-    load_embeddings(glove_file, w2i)
-
+    embeddings = load_embeddings(glove_file, w2i)
 
 
 def main(args):
