@@ -2,6 +2,7 @@ import argparse
 from collections import Counter
 import json
 import numpy as np
+import pickle
 from pprint import pprint
 import re
 import string
@@ -17,6 +18,18 @@ def read_data(filename):
     with open(filename, encoding="utf-8") as f:
         data = json.load(f)
     return data
+
+
+def preprocess_data(data, glove_file):
+    """
+    Preprocesses the data by obtaining a vocabulary and the corresponding
+    embeddings.
+    """
+
+    vocab = get_vocab(data)
+    w2i = {word: idx for idx, word in enumerate(vocab)}
+    embeddings = load_embeddings(glove_file, w2i)
+    return embeddings
 
 
 def get_vocab(data):
@@ -89,26 +102,27 @@ def load_embeddings(file_path, w2i, embedding_dim=50):
             index = w2i.get(word)
 
             if index:
-                embedding = np.array(values[1:], dtype="float32")
+                embedding = np.array(split_line[1:], dtype="float32")
                 embeddings[index] = embedding
     return embeddings
 
 
-def preprocess_data(data, glove_file):
+def save_embeddings(file_path, embeddings):
     """
-    Preprocesses the data by obtaining a vocabulary and the corresponding
-    embeddings.
+    Saves the embeddings as a Pickle file.
     """
-    vocab = get_vocab(data)
-    w2i = {word: idx for idx, word in enumerate(vocab)}
-    embeddings = load_embeddings(glove_file, w2i)
+
+    with open(file_path, "wb") as f:
+        pickle.dump(embeddings, f)
+
 
 
 def main(args):
     # Data: chat, chat_id, documents (comments, fact_table, plot, review),
     # imdb_id, labels, movie_name, spans
     data = read_data(args.file)
-    data = preprocess_data(data, args.glove)
+    embeddings = preprocess_data(data, args.glove)
+    save_embeddings(args.embeddings, embeddings)
 
 
     # Retrieve: Takes context and resources. Uses cosine similarity to obtain
@@ -123,6 +137,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--file", help="path to file of the dataset.")
     parser.add_argument("--glove", help="path to glove file.")
+    parser.add_argument("--embeddings", help="path to where embeddings file " +
+                        " will be saved.")
     args = parser.parse_args()
 
     main(args)
