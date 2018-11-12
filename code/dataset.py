@@ -28,8 +28,9 @@ def preprocess_data(data, glove_file):
 
     vocab = get_vocab(data)
     w2i = {word: idx for idx, word in enumerate(vocab)}
+    i2w = {idx: word for idx, word in enumerate(vocab)}
     embeddings = load_embeddings(glove_file, w2i)
-    return embeddings
+    return embeddings, w2i
 
 
 def get_vocab(data):
@@ -43,8 +44,6 @@ def get_vocab(data):
     text = str(set(TEXT))
     # Lowercase words
     text = text.lower()
-    # Add space after point and comma
-    text = re.sub(r'(?<=[.,])(?=[^\s])', r' ', text)
     # Remove punctuation
     translator = str.maketrans('', '', string.punctuation)
     text = text.translate(translator)
@@ -66,7 +65,7 @@ def get_text(data_entry):
             if isinstance(value, dict):
                 get_text(value)
             elif isinstance(value, list):
-                TEXT.append("".join([str(item) for item in value]))
+                TEXT.append(" ".join([str(item) for item in value]))
             else:
                 TEXT.append(value)
 
@@ -107,30 +106,22 @@ def load_embeddings(file_path, w2i, embedding_dim=50):
     return embeddings
 
 
-def save_embeddings(file_path, embeddings):
+def save_pickle(file_path, input):
     """
-    Saves the embeddings as a Pickle file.
+    Saves the input as a Pickle file.
     """
 
     with open(file_path, "wb") as f:
-        pickle.dump(embeddings, f)
-
+        pickle.dump(input, f)
 
 
 def main(args):
     # Data: chat, chat_id, documents (comments, fact_table, plot, review),
     # imdb_id, labels, movie_name, spans
     data = read_data(args.file)
-    embeddings = preprocess_data(data, args.glove)
-    save_embeddings(args.embeddings, embeddings)
-
-
-    # Retrieve: Takes context and resources. Uses cosine similarity to obtain
-    #           relevant resource candidates.
-    # Rerank:   Takes relevant resource candidates and templates (picked from
-    #           required response category).
-    # Rewrite:  Takes best resource candidate and its template and generates
-    #           response
+    embeddings, w2i = preprocess_data(data, args.glove)
+    save_pickle(args.embeddings, embeddings)
+    save_pickle(args.w2i, w2i)
 
 
 if __name__ == "__main__":
@@ -139,6 +130,7 @@ if __name__ == "__main__":
     parser.add_argument("--glove", help="path to glove file.")
     parser.add_argument("--embeddings", help="path to where embeddings file " +
                         " will be saved.")
+    parser.add_argument("--w2i", help="path to w2i file")
     args = parser.parse_args()
 
     main(args)
