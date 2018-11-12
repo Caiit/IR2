@@ -1,3 +1,7 @@
+# Terminal exmaple:
+# python dataset.py --file=data/train_data.json --glove=glove/glove.6B.50d.txt
+# --embeddings=embeddings.pkl --w2i=w2i.pkl
+
 import argparse
 from collections import Counter
 import json

@@ -1,3 +1,8 @@
+# Terminal example:
+# python main.py --file=data/train_data.json --embeddings=data/embeddings.pkl
+# --w2i=w2i.pkl
+
+
 import argparse
 import json
 import numpy as np
