@@ -130,11 +130,11 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--file", help="path to file of the dataset.")
-    parser.add_argument("--glove", help="path to glove file.")
-    parser.add_argument("--embeddings", help="path to where embeddings file " +
+    parser.add_argument("file", help="path to file of the dataset.")
+    parser.add_argument("glove", help="path to glove file.")
+    parser.add_argument("embeddings", help="path to where embeddings file " +
                         " will be saved.")
-    parser.add_argument("--w2i", help="path to w2i file")
+    parser.add_argument("w2i", help="path to w2i file")
     args = parser.parse_args()
 
     main(args)
