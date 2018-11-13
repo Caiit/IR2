@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import json
 import os
+import pickle
 
 from tqdm import tqdm
 from hred.model import HREDModel
@@ -72,16 +73,74 @@ def read_data(directory):
     if not os.path.exists(FLAGS.logs_dir+FLAGS.config_id+'/'):
         os.mkdir(FLAGS.logs_dir+FLAGS.config_id+'/')
 
-    with open(directory+'/phred-dialog-dstc2-train.json','r') as fp:
+    # with open(directory+'/phred-dialog-dstc2-train.json','r') as fp:
+    #     train_data=json.load(fp)
+    #     print(len(train_data))
+    # with open(directory+'/phred-dialog-dstc2-test.json','r') as fp:
+    #     test_data=json.load(fp)
+    # with open(directory+'/phred-dialog-dstc2-dev.json','r') as fp:
+    #     dev_data=json.load(fp)
+    # with open(directory+'/phred-dialog-dstc2-stats.json','r') as fp:
+    #     stats=json.load(fp)
+    # with open(directory+'/phred-dialog-dstc2-vocab.json','r') as fp:
+    #     vocab=json.load(fp)
+
+    with open(directory+'/train.json','r') as fp:
         train_data=json.load(fp)
-    with open(directory+'/phred-dialog-dstc2-test.json','r') as fp:
+        print(len(train_data))
+    with open(directory+'/test.json','r') as fp:
         test_data=json.load(fp)
-    with open(directory+'/phred-dialog-dstc2-dev.json','r') as fp:
+    with open(directory+'/dev.json','r') as fp:
         dev_data=json.load(fp)
-    with open(directory+'/phred-dialog-dstc2-stats.json','r') as fp:
-        stats=json.load(fp)
-    with open(directory+'/phred-dialog-dstc2-vocab.json','r') as fp:
-        vocab=json.load(fp)
+    # with open(directory+'/stats.json','r') as fp:
+    #     stats=json.load(fp)
+    with open(directory+'/words.pkl','rb') as fp:
+        words = pickle.load(fp)
+        vocab = {}
+        for i, key in enumerate(words.keys()):
+            vocab[key] = i
+
+    def get_dec_outputs(data):
+
+        dec_op=[]
+        for i in data[1]:
+            temp=i+['<EOS>']
+            temp=temp[1:]
+            dec_op.append(temp)
+        data.append(dec_op)
+
+    get_dec_outputs(train_data)
+    get_dec_outputs(dev_data)
+    get_dec_outputs(test_data)
+
+
+    def data_stats(data):
+
+        for ind,d in enumerate(data):
+            if ind==0: #pre
+                c_len=[]
+                for context in d:
+                    c_len.append(len(context))
+            if ind==1: #KB
+                utt_len=[]
+                for context in d:
+                    utt_len.append(len(context))
+            if ind==2: #post
+                resp_len=[]
+                for context in d:
+                    resp_len.append(len(context))
+
+        utterances_len=utt_len+resp_len
+
+        return [max(c_len),max(utterances_len),max(utterances_len)]
+
+    train_stats=data_stats(train_data)
+    test_stats=data_stats(test_data)
+    dev_stats=data_stats(dev_data)
+
+    stats=[max(test_stats[0],max(train_stats[0],dev_stats[0])),
+                  max(test_stats[1],max(train_stats[1],dev_stats[1])),
+                 max(test_stats[2],max(train_stats[2],dev_stats[2]))]
 
     params_dict=FLAGS.__flags
     params_dict['max_enc_size']=stats[0]
