@@ -7,7 +7,7 @@ To run the code, you firstly need to download pre-trained
 
 
 1. Run dataset.py and give the the path to the data file, the path to the GloVe embeddings file, the path to where you would like to save the generated embeddings and the path to where you would like to save the generated word to index (w2i) file. Example: 
-```python dataset.py data/train_data.json glove/glove.6B.50d.txt embeddings.pkl w2i.pkl```
+```python dataset.py data/train_data.json glove/glove.6B.50d.txt data/embeddings.pkl data/w2i.pkl```
 2. Run main.py and give the path to where you saved the data and the path to where you saved the embeddings and word to index file generated with dataset.py. Example: 
-```python main.py data/train_data.json data/embeddings.pkl w2i.pkl```
+```python main.py data/train_data.json data/embeddings.pkl data/w2i.pkl```
 
