@@ -25,8 +25,11 @@ flags.DEFINE_integer("word_emb_dim",300, "hidden dimensions of the word embeddin
 flags.DEFINE_integer("hidden_units",350, "hidden dimensions of the decoder units.")
 flags.DEFINE_integer("eval_interval", 1, "After how many epochs do you want to eval test set")
 flags.DEFINE_integer("patience", 5, "Patience parameter")
-flags.DEFINE_boolean("train",True,"Train or Infer")
-flags.DEFINE_boolean("debug",True,"Debug mode with small dataset")
+flags.DEFINE_boolean("train",True, "Train or Infer")
+flags.DEFINE_boolean("debug",True, "Debug mode with small dataset")
+flags.DEFINE_integer("max_enc_size", 100, "Max encoder size")
+flags.DEFINE_integer("max_sent_size", 100, "Max sentence length")
+flags.DEFINE_integer("vocab_size", 100, "Vocab size")
 FLAGS = flags.FLAGS
 
 def arrayfy(data, stats, vocab):
@@ -87,7 +90,6 @@ def read_data(directory):
 
     with open(directory+'/train.json','r') as fp:
         train_data=json.load(fp)
-        print(len(train_data))
     with open(directory+'/test.json','r') as fp:
         test_data=json.load(fp)
     with open(directory+'/dev.json','r') as fp:
@@ -99,6 +101,7 @@ def read_data(directory):
         vocab = {}
         for i, key in enumerate(words.keys()):
             vocab[key] = i
+        vocab['<EOS>'] = i + 1
 
     def get_dec_outputs(data):
 
@@ -139,13 +142,17 @@ def read_data(directory):
     dev_stats=data_stats(dev_data)
 
     stats=[max(test_stats[0],max(train_stats[0],dev_stats[0])),
-                  max(test_stats[1],max(train_stats[1],dev_stats[1])),
-                 max(test_stats[2],max(train_stats[2],dev_stats[2]))]
+           max(test_stats[1],max(train_stats[1],dev_stats[1])),
+           max(test_stats[2],max(train_stats[2],dev_stats[2]))]
 
-    params_dict=FLAGS.__flags
-    params_dict['max_enc_size']=stats[0]
-    params_dict['max_sent_size']=stats[1]
-    params_dict['vocab_size']=len(vocab)
+    # params_dict=FLAGS.__flags
+    # params_dict['max_enc_size']=stats[0]
+    # params_dict['max_sent_size']=stats[1]
+    # params_dict['vocab_size']=len(vocab)
+
+    FLAGS.max_enc_size = stats[0]
+    FLAGS.max_sent_size = stats[1]
+    FLAGS.vocab_size = len(vocab)
 
     train=arrayfy(train_data,stats,vocab)
     test=arrayfy(test_data,stats,vocab)
@@ -202,8 +209,15 @@ def get_words_from_ids(ids):
         ids: The predicted ids obtained from argmax over the Vocab softmax values
     """
     ids_list=ids.tolist()
-    with open(FLAGS.data_dir+'/phred-dialog-dstc2-vocab.json','r') as fp:
-         vocab=json.load(fp)
+    # with open(FLAGS.data_dir+'/phred-dialog-dstc2-vocab.json','r') as fp:
+    #      vocab=json.load(fp)
+    #
+    with open(FLAGS.data_dir+'/words.pkl','rb') as fp:
+        words = pickle.load(fp)
+        vocab = {}
+        for i, key in enumerate(words.keys()):
+            vocab[key] = i
+        vocab['<EOS>'] = i + 1
 
     invert_vocab= dict([v,k] for k,v in vocab.items())
 
@@ -273,7 +287,6 @@ def train():
     batches = zip(range(0, num_train, batch_size), range(batch_size,num_train+batch_size, batch_size))
     batches = [(start, end) for start, end in batches]
     fp=open(FLAGS.logs_dir+FLAGS.config_id+'/logs'+FLAGS.config_id+'.log','w+')
-
 
     with tf.Session() as sess:
             #Create or Restore Model
@@ -353,13 +366,14 @@ def infer(data_infer):
     preds_test=get_words_from_ids(preds_ids)
     labels_test=get_words_from_ids(data[2])
 
-    os.makedirs("Results")
-    fp1 =open('Results/predictions'+str(FLAGS.config_id)+'.txt','w+')
+    if not os.path.exists("results"):
+        os.makedirs("results")
+    fp1 =open('results/predictions'+str(FLAGS.config_id)+'.txt','w+')
     for item in preds_test:
         fp1.write("%s\n"%item)
     fp1.close()
 
-    fp2 =open('Results/labels'+str(FLAGS.config_id)+'.txt','w+')
+    fp2 =open('results/labels'+str(FLAGS.config_id)+'.txt','w+')
     for item in labels_test:
         fp2.write("%s\n"%item)
     fp2.close()

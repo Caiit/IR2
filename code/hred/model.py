@@ -9,7 +9,9 @@ Created on Wed Oct 11 22:52:34 2017
 import tensorflow as tf
 import numpy as np
 from tensorflow.python.util import nest
-from tensorflow.contrib.rnn.python.ops.rnn_cell import _linear
+# from tensorflow.contrib.rnn.python.ops.rnn_cell import _linear
+from tensorflow.contrib.rnn.python.ops import core_rnn_cell
+linear_ = core_rnn_cell._linear
 
 class Embedder(object):
     """
@@ -200,7 +202,6 @@ class HREDModel(object):
     The Hierarchical Recurrent Encoder-Decoder Model
     """
     def __init__(self,sess,FLAGS):
-
         tf.set_random_seed(1234)
         self.sess=sess
         self.batch_size =FLAGS.batch_size,
