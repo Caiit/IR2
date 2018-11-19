@@ -1,22 +1,80 @@
 import json
 import numpy as np
+import pickle
+import string
 
-def load_data_and_labels(filename):
+
+global embeddings
+global w2i
+
+def load_data_and_labels(filename, data_folder, max_length):
     """Load sentences and labels"""
+    global embeddings
+    global  w2i
+
     with open(filename, encoding="utf-8") as f:
         data = json.load(f)
+    with open(data_folder + "embeddings.pkl", "rb") as f:
+        embeddings = pickle.load(f)
+    with open(data_folder + "w2i.pkl", "rb") as f:
+        w2i = pickle.load(f)
 
     x_raw = []
     y_raw = []
     for example in data:
         chat = example["chat"]
         labels = example["labels"]
-        for i in range(len(chat[3:])):
-            x_raw.append(" ".join(chat[i - 3: i]))
+        # Get current utterance and response label
+        for i in range(len(chat) - 1):
+            utterance = chat[i]  # Current utterance
             label_hot = np.zeros(5)
-            label_hot[labels[i]] = 1
-            y_raw.append(label_hot)
+            label_hot[labels[i + 1]] = 1  # Label of response
+            x_raw.append(embed_sentence(utterance, max_length))
+            y_raw.append((label_hot))
+        # OLD: get whole context as input and response label
+        # for i in range(len(chat[3:])):
+        #     sentence = " ".join(chat[i - 3: i])
+        #     if len(sentence.split()) > 0:
+        #         x_raw.append(embed_sentence(sentence, max_length))
+        #         label_hot = np.zeros(5)
+        #         label_hot[labels[i + 1]] = 1  # Label of response
+        #         y_raw.append(label_hot)
     return x_raw, y_raw
+
+
+def embed_sentence(sentence, max_length):
+    """
+    Embeds a sentence after cleaning it.
+    """
+
+    global embeddings
+    global w2i
+
+    sentence = clean_sentence(sentence)
+    sentence = sentence.split()
+
+    embedded_sentence = np.ones((max_length, embeddings[0].shape[0])) * len(w2i)
+
+    for i, word in enumerate(sentence):
+        if i == max_length: break
+        if w2i.get(word):
+            index = w2i[word]
+            embedding = embeddings[index]
+            embedded_sentence[i] = embedding
+        else:
+            embedded_sentence[i] = 0
+    return embedded_sentence
+
+
+def clean_sentence(sentence):
+    """
+    Cleans a sentence by lowercasing it and removing punctuation.
+    """
+
+    sentence = sentence.lower()
+    translator = str.maketrans('', '', string.punctuation)
+    sentence = sentence.translate(translator)
+    return sentence
 
 
 def batch_iter(data, batch_size, num_epochs, shuffle=True):
