@@ -5,6 +5,7 @@
 import argparse
 from collections import Counter
 import json
+from nltk.tokenize import word_tokenize
 import numpy as np
 import pickle
 from pprint import pprint
@@ -52,7 +53,7 @@ def get_vocab(data):
     translator = str.maketrans('', '', string.punctuation)
     text = text.translate(translator)
     # Count occurrences
-    word_count = Counter(text.split())
+    word_count = Counter(word_tokenize(text))
     vocab = reduce_vocab(word_count)
     return vocab
 
