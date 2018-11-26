@@ -10,9 +10,10 @@ import pickle
 from pprint import pprint
 import re
 import string
+import matplotlib.pyplot as plt
 
 TEXT = []
-
+LABELS = []
 
 def read_data(filename):
     """
@@ -30,11 +31,11 @@ def preprocess_data(data, glove_file):
     embeddings.
     """
 
-    vocab = get_vocab(data)
+    vocab, word_count = get_vocab(data)
     w2i = {word: idx for idx, word in enumerate(vocab)}
     i2w = {idx: word for idx, word in enumerate(vocab)}
     embeddings = load_embeddings(glove_file, w2i)
-    return embeddings, w2i
+    return embeddings, w2i, word_count
 
 
 def get_vocab(data):
@@ -54,16 +55,15 @@ def get_vocab(data):
     # Count occurrences
     word_count = Counter(text.split())
     vocab = reduce_vocab(word_count)
-    return vocab
+    return vocab, word_count
 
 
 def get_text(data_entry):
     """
     Retrieves the text in the data by looking in the following keys: chat,
     documents[comments], documents[fact_table], documents[plot],
-    documents[review], movie_name and spans.
+    documents[review], movie_name and spans, and obtain the labels of the responses.
     """
-
     for key, value in data_entry.items():
         if key != "chat_id" and key != "imdb_id" and key != "labels":
             if isinstance(value, dict):
@@ -72,6 +72,8 @@ def get_text(data_entry):
                 TEXT.append(" ".join([str(item) for item in value]))
             else:
                 TEXT.append(value)
+        if key == "labels":
+            LABELS.extend(value)
 
 
 def reduce_vocab(counter):
@@ -119,13 +121,47 @@ def save_pickle(file_path, input):
         pickle.dump(input, f)
 
 
+def compute_word_distribution(word_count):
+    print("Creating plot...")
+    n = 100
+    word_count = word_count.most_common(n)
+    labels, values = zip(*word_count)
+
+    indexes = np.arange(len(labels))
+    width = 1
+
+    plt.bar(indexes, values, width)
+    if n < 200:
+        plt.xticks(indexes + width * 0.25, labels, rotation=90)
+        plt.tick_params(axis='both', which='major', labelsize=6)
+
+    plt.show()
+
+
+def compute_label_distribution():
+    labels, values = zip(*Counter(LABELS).items())
+
+    indexes = np.arange(len(labels))
+    width = 1
+
+    plt.bar(indexes, values, width)
+    plt.xticks(indexes + width * 0.25, labels, rotation=90)
+    plt.tick_params(axis='both', which='major', labelsize=6)
+
+    plt.show()
+
+
 def main(args):
     # Data: chat, chat_id, documents (comments, fact_table, plot, review),
     # imdb_id, labels, movie_name, spans
     data = read_data(args.file)
-    embeddings, w2i = preprocess_data(data, args.glove)
+    embeddings, w2i, word_count = preprocess_data(data, args.glove)
     save_pickle(args.embeddings, embeddings)
     save_pickle(args.w2i, w2i)
+
+    if args.stats:
+        compute_word_distribution(word_count)
+        compute_label_distribution()
 
 
 if __name__ == "__main__":
@@ -135,6 +171,7 @@ if __name__ == "__main__":
     parser.add_argument("embeddings", help="path to where embeddings file " +
                         " will be saved.")
     parser.add_argument("w2i", help="path to w2i file")
+    parser.add_argument("--stats", type=bool, default=False, help="compute statistics about the dataset")
     args = parser.parse_args()
 
     main(args)

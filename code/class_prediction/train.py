@@ -21,14 +21,8 @@ def train_cnn(args):
     x_test, y_test = dataset.load_data_and_labels(data_folder + "/test_data.json", data_folder, max_length)
     x_dev, y_dev = dataset.load_data_and_labels(data_folder + "/dev_data.json", data_folder, max_length)
 
-    print(sum(np.equal(np.argmax(y_train, 1), 3)))
     parameter_file = args.parameters
     params = json.loads(open(parameter_file).read())
-
-    """Step 1: pad each sentence to the same length and map each word to an id"""
-    # max_document_length = max([len(x) for x in x_train])
-    # logging.info('The maximum length of all sentences: {}'.format(max_document_length))
-    # vocab_processor = learn.preprocessing.VocabularyProcessor(max_document_length)
 
     logging.info('x_train: {}, x_dev: {}, x_test: {}'.format(len(x_train), len(x_dev), len(x_test)))
     logging.info('y_train: {}, y_dev: {}, y_test: {}'.format(len(y_train), len(y_dev), len(y_test)))
@@ -79,7 +73,7 @@ def train_cnn(args):
             # One evaluation step: evaluate the model with one batch
             def dev_step(x_batch, y_batch):
                 feed_dict = {cnn.input_x: x_batch, cnn.input_y: y_batch, cnn.dropout_keep_prob: 1.0}
-                step, loss, acc, num_correct, predictions = sess.run([global_step, cnn.loss, cnn.accuracy, cnn.num_correct, cnn.predictions], feed_dict)
+                step, loss, acc, num_correct, predictions, probs = sess.run([global_step, cnn.loss, cnn.accuracy, cnn.num_correct, cnn.predictions, cnn.probs], feed_dict)
 
                 acc_per_class = []
                 for i in range(y_train.shape[1]):
@@ -88,10 +82,8 @@ def train_cnn(args):
                     if (sum(np.equal(np.argmax(y_batch, 1), i)) > 0):
                         acc = sum(same_label) / sum(np.equal(np.argmax(y_batch, 1), i))
                     acc_per_class.append(acc)
-                return num_correct, acc_per_class
+                return num_correct, acc_per_class, loss
 
-            # Save the word_to_id map since predict.py needs it
-            # vocab_processor.save(os.path.join(out_dir, "vocab.pickle"))
             sess.run(tf.global_variables_initializer())
 
             # Training starts here
@@ -110,17 +102,21 @@ def train_cnn(args):
                     total_dev_correct = 0
                     n_batches = 0
                     acc_per_class = np.zeros(y_train.shape[1])
+                    total_loss = 0
                     for dev_batch in dev_batches:
                         x_dev_batch, y_dev_batch = zip(*dev_batch)
-                        num_dev_correct, acc = dev_step(x_dev_batch, y_dev_batch)
+                        num_dev_correct, acc, loss = dev_step(x_dev_batch, y_dev_batch)
                         total_dev_correct += num_dev_correct
                         acc_per_class += np.array(acc)
+                        total_loss += loss
                         n_batches += 1
                     acc_per_class /= n_batches
+                    avg_loss = total_loss / n_batches
 
                     dev_accuracy = float(total_dev_correct) / len(y_dev)
                     logging.critical('Accuracy on dev set: {}'.format(dev_accuracy))
                     logging.critical('Accuracy per class: {}'.format(acc_per_class))
+                    logging.critical('Average loss: {}'.format(avg_loss))
 
                     """Step 3.2: save the model if it is the best based on accuracy on dev set"""
                     if dev_accuracy >= best_accuracy:
@@ -134,17 +130,21 @@ def train_cnn(args):
             total_test_correct = 0
             n_batches = 0
             acc_per_class = np.zeros(y_train.shape[1])
+            total_loss = 0
             for test_batch in test_batches:
                 x_test_batch, y_test_batch = zip(*test_batch)
-                num_test_correct, acc = dev_step(x_test_batch, y_test_batch)
+                num_test_correct, acc, loss = dev_step(x_test_batch, y_test_batch)
                 total_test_correct += num_test_correct
                 acc_per_class += np.array(acc)
+                total_loss += loss
                 n_batches += 1
             acc_per_class /= n_batches
+            avg_loss = total_loss / n_batches
 
             test_accuracy = float(total_test_correct) / len(y_test)
             logging.critical('Accuracy on test set is {} based on the best model {}'.format(test_accuracy, path))
             logging.critical('Accuracy per class: {}'.format(acc_per_class))
+            logging.critical('Average loss: {}'.format(avg_loss))
             logging.critical('The training is complete')
 
 

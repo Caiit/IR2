@@ -7,11 +7,11 @@ import argparse
 import json
 import numpy as np
 import pickle
-from pprint import pprint
 import re
 import string
 
 from retrieve import retrieve
+from resource_prediction import ResourcePrediction
 
 global embeddings
 global w2i
@@ -38,11 +38,12 @@ def load_pickle(file_path):
     return output
 
 
-def train(data):
+def run(data):
     """
     Retrieve, rerank, rewrite.
     """
-
+    prediction = ResourcePrediction(args.prediction_model_folder)
+    # TODO: I think this misses a loop through the chat itself
     for example in data:
         resources = []
 
@@ -55,6 +56,17 @@ def train(data):
         # Retrieve: Takes context and resources. Uses cosine similarity to
         # obtain relevant resource candidates.
         ranked_resources = retrieve(context, resources)
+
+        # Predict: Takes context and predicts the category of the resource.
+        # Take as max the maximum length and pad context to max length if to short
+        # Get only last utterance
+        last_utterance = embed_sentence(example["chat"][-2])
+        padded_context = context[-args.max_length:]
+        padded_context = np.pad(padded_context, ((0, args.max_length - len(context)), (0, 0)),
+                                'constant', constant_values=(len(w2i)))
+        predicted = prediction.predict(np.expand_dims(padded_context, 0))
+        print(predicted)
+
         # Rerank: Takes relevant resource candidates and templates (picked from
         # required response category).
         # Rewrite: Takes best resource candidate and its template and generates
@@ -138,15 +150,17 @@ def main(args):
     data = load_data(args.file)
     embeddings = load_pickle(args.embeddings)
     w2i = load_pickle(args.w2i)
-    train(data)
+    run(data)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--file", help="path to file of the dataset.")
-    parser.add_argument("--embeddings", help="path to file of the saved " +
-                        "embeddings")
-    parser.add_argument("--w2i", help="path to file of the saved w2i")
+    parser.add_argument("file", help="path to file of the dataset.")
+    parser.add_argument("embeddings", help="path to file of the saved embeddings")
+    parser.add_argument("w2i", help="path to file of the saved w2i")
+    parser.add_argument("--max_length", default=110, help="max context length for prediction")
+    parser.add_argument("prediction_model_folder", help="path to the folder that contains"
+                                                          " the prediction model")
     args = parser.parse_args()
 
     main(args)

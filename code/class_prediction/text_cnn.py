@@ -63,6 +63,7 @@ class TextCNN(object):
 			l2_loss += tf.nn.l2_loss(W)
 			l2_loss += tf.nn.l2_loss(b)
 			self.scores = tf.nn.xw_plus_b(self.h_drop, W, b, name='scores')
+			self.probs = tf.nn.softmax(self.scores, name='probs')
 			self.predictions = tf.argmax(self.scores, 1, name='predictions')
 
 		# Calculate mean cross-entropy loss
