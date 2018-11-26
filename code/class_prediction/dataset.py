@@ -2,6 +2,7 @@ import json
 import numpy as np
 import pickle
 import string
+from nltk.tokenize import word_tokenize
 
 
 global embeddings
@@ -55,7 +56,7 @@ def embed_sentence(sentence, max_length):
     global w2i
 
     sentence = clean_sentence(sentence)
-    sentence = sentence.split()
+    sentence = word_tokenize(sentence)
     sentence = sentence[-max_length:]
 
     embedded_sentence = np.ones((max_length, embeddings[0].shape[0])) * len(w2i)

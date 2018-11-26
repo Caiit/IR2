@@ -5,6 +5,7 @@
 
 import argparse
 import json
+from nltk.tokenize import word_tokenize
 import numpy as np
 import pickle
 import re
@@ -96,7 +97,7 @@ def embed_sentence(sentence):
     global w2i
 
     sentence = clean_sentence(sentence)
-    sentence = sentence.split()
+    sentence = word_tokenize(sentence)
 
     embedded_sentence = np.zeros((len(sentence), embeddings[0].shape[0]))
 
