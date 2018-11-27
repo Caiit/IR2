@@ -5,23 +5,21 @@ import numpy as np
 
 def retrieve(context, resources):
     """
-    Ranks the resources based on similarity with the context. The similarity is
-    calculated by averaging the embeddings and then calculating the cosine
+    Calculates the similarity of each resource and the context. The similarity
+    is calculated by averaging the embeddings and then calculating the cosine
     similarity.
     """
 
     avg_context = np.mean(context, axis=0)
-
     similarities = []
-    meaningful_resources = []
 
     for resource in resources:
         avg_resource = np.mean(resource, axis=0)
         similarity = cosine_similarity(avg_context, avg_resource)
         similarities.append(similarity)
 
-    ranked_resources = rank_resources(resources, similarities)
-    return ranked_resources
+    # ranked_resources = rank_resources(resources, similarities)
+    return similarities
 
 
 
@@ -41,12 +39,12 @@ def cosine_similarity(a, b):
     return dot_product / (norm_a * norm_b)
 
 
-def rank_resources(resources, similarities):
-    """
-    Sorts the similarites in decreasing order and sorts the resources according
-    to this order.
-    """
-
-    sorted_indices = np.argsort(similarities)[::-1]
-    sorted_resources = [resources[i] for i in sorted_indices]
-    return sorted_resources
+# def rank_resources(resources, similarities):
+#     """
+#     Sorts the similarites in decreasing order and sorts the resources according
+#     to this order.
+#     """
+#
+#     sorted_indices = np.argsort(similarities)[::-1]
+#     sorted_resources = [resources[i] for i in sorted_indices]
+#     return sorted_resources
