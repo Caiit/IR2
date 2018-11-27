@@ -1,0 +1,19 @@
+import numpy as np
+
+
+def rerank(resources, class_indices, similarities, class_prediction):
+    """
+    Reranks the resources according to the class prediction and the similarity
+    that was measured between each resource and the context.
+    """
+
+    scores = []
+
+    for i in range(len(similarities)):
+        # similarity of resource*class prediction probability of resource class
+        score = similarities[i]*class_prediction[0][class_indices[i]]
+        scores.append(score)
+
+    sorted_indices = np.argsort(scores)[::-1]
+    sorted_resources = [resources[i] for i in sorted_indices]
+    return sorted_resources

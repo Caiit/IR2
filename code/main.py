@@ -5,12 +5,15 @@
 
 import argparse
 import json
+from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 import numpy as np
 import pickle
+from pprint import pprint
 import re
 import string
 
+from rerank import rerank
 from retrieve import retrieve
 from resource_prediction import ResourcePrediction
 
@@ -44,45 +47,68 @@ def run(data):
     Retrieve, rerank, rewrite.
     """
     prediction = ResourcePrediction(args.prediction_model_folder)
-    # TODO: I think this misses a loop through the chat itself
+
     for example in data:
         resources = []
+        class_indices = []
 
-        context = get_context(example["chat"])
-        resources = get_resources(example["documents"]["comments"], resources)
-        resources = get_resources(example["documents"]["fact_table"], resources)
-        resources = get_resources(example["documents"]["plot"], resources)
-        resources = get_resources(example["documents"]["review"], resources)
+        resources, num_comments = \
+            get_resources(example["documents"]["comments"], resources)
+        resources, num_facts = get_resources(example["documents"]["fact_table"],
+                                             resources)
+        resources, num_plots = get_resources(example["documents"]["plot"],
+                                             resources)
+        resources, num_reviews = get_resources(example["documents"]["review"],
+                                               resources)
 
-        # Retrieve: Takes context and resources. Uses cosine similarity to
-        # obtain relevant resource candidates.
-        ranked_resources = retrieve(context, resources)
+        # Keep track of where each resource originated from.
+        class_indices += [2]*num_comments
+        class_indices += [3]*num_facts
+        class_indices += [0]*num_plots
+        class_indices += [1]*num_reviews
 
-        # Predict: Takes context and predicts the category of the resource.
-        # Take as max the maximum length and pad context to max length if to short
-        # Get only last utterance
-        last_utterance = embed_sentence(example["chat"][-2])
-        padded_context = context[-args.max_length:]
-        padded_context = np.pad(padded_context, ((0, args.max_length - len(context)), (0, 0)),
-                                'constant', constant_values=(len(w2i)))
-        predicted = prediction.predict(np.expand_dims(padded_context, 0))
-        print(predicted)
+        chat = example["chat"]
 
-        # Rerank: Takes relevant resource candidates and templates (picked from
-        # required response category).
-        # Rewrite: Takes best resource candidate and its template and generates
-        # response.
+        # Loop over each of the last three utterances in the chat (the context).
+        for i in range(3, len(chat)+1):
+            last_utterances = chat[i-3:i]
+            embedded_utterances = [embed_sentence(utterance) for utterance in
+                                   last_utterances]
+            concat_context = get_context(last_utterances)
+
+            # Retrieve: Takes context and resources. Uses cosine similarity to
+            # obtain relevant resource candidates.
+            similarities = retrieve(concat_context, resources)
+
+            # Predict: Takes context and predicts the category of the resource.
+            # Take the maximum length as max and pad the context to maximum
+            # length if it is too short.
+            last_utterance = embedded_utterances[-2]
+            padded_utterance = last_utterance[-args.max_length:]
+            padded_utterance = np.pad(padded_utterance,
+                ((0, args.max_length - len(padded_utterance)), (0, 0)),
+                "constant", constant_values=(len(w2i)))
+            predicted = prediction.predict(np.expand_dims(padded_utterance, 0))
+
+            # Rerank: Takes ranked resource candidates and class prediction and
+            # reranks them.
+            ranked_resources = rerank(resources, class_indices, similarities,
+                                      predicted)
+
+            # Rewrite: Takes best resource candidate and its template and
+            # generates response.
+
+            return
 
         return
 
 
-def get_context(conversation):
+def get_context(last_utterances):
     """
     Takes the last two utterances from a conversation and the current utterance
     to generate a context.
     """
 
-    last_utterances = conversation[-3:]
     context = " ".join([str(string) for string in last_utterances])
     embedded_context = embed_sentence(context)
     return embedded_context
@@ -90,15 +116,13 @@ def get_context(conversation):
 
 def embed_sentence(sentence):
     """
-    Embeds a sentence after cleaning it.
+    Embeds a sentence.
     """
 
     global embeddings
     global w2i
 
     sentence = clean_sentence(sentence)
-    sentence = word_tokenize(sentence)
-
     embedded_sentence = np.zeros((len(sentence), embeddings[0].shape[0]))
 
     for i, word in enumerate(sentence):
@@ -111,22 +135,30 @@ def embed_sentence(sentence):
 
 def clean_sentence(sentence):
     """
-    Cleans a sentence by lowercasing it and removing punctuation.
+    Cleans a sentence by lowercasing it, removing punctuation and stop words,
+    and tokenizing it.
     """
 
-    sentence = sentence.lower()
     translator = str.maketrans('', '', string.punctuation)
+    stop_words = set(stopwords.words('english'))
+
+    sentence = sentence.lower()
     sentence = sentence.translate(translator)
+    sentence = word_tokenize(sentence)
+    # TODO: Remove stop words as below.
+    # sentence = [word for word in sentence if word not in stop_words]
+
     return sentence
 
 
 def get_resources(document, resources):
     """
-    Obtains the resources in a document.
+    Obtains the resources in a document and returns how many resources of a
+    category were obtained.
     """
 
     regex = re.compile("[@_!#$%^&*()<>?/\|}{~:]")
-    # print(document)
+    amount_resources = len(resources)
 
     if type(document) is list:
         for resource in document:
@@ -141,7 +173,9 @@ def get_resources(document, resources):
         for key, value in document.items():
             embedded_resource = embed_sentence(value)
             resources.append(embedded_resource)
-    return resources
+
+    amount_category = len(resources) - amount_resources
+    return resources, amount_category
 
 
 def main(args):
