@@ -26,7 +26,7 @@ def read_data(filename):
     return data
 
 
-def preprocess_data(data, glove_file):
+def preprocess_data(data, glove_file, embedding_dim):
     """
     Preprocesses the data by obtaining a vocabulary and the corresponding
     embeddings.
@@ -35,7 +35,7 @@ def preprocess_data(data, glove_file):
     vocab, word_count = get_vocab(data)
     w2i = {word: idx for idx, word in enumerate(vocab)}
     i2w = {idx: word for idx, word in enumerate(vocab)}
-    embeddings = load_embeddings(glove_file, w2i)
+    embeddings = load_embeddings(glove_file, w2i, embedding_dim)
     return embeddings, w2i, word_count
 
 
@@ -93,7 +93,7 @@ def reduce_vocab(counter):
     return vocab
 
 
-def load_embeddings(file_path, w2i, embedding_dim=50):
+def load_embeddings(file_path, w2i, embedding_dim):
     """
     Uses a text file of GloVe embeddings to load all possible embeddings into
     a dictionary.
@@ -156,7 +156,8 @@ def main(args):
     # Data: chat, chat_id, documents (comments, fact_table, plot, review),
     # imdb_id, labels, movie_name, spans
     data = read_data(args.file)
-    embeddings, w2i, word_count = preprocess_data(data, args.glove)
+    embeddings, w2i, word_count = preprocess_data(data, args.glove,
+                                                  args.embedding_dim)
     save_pickle(args.embeddings, embeddings)
     save_pickle(args.w2i, w2i)
 
@@ -169,6 +170,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("file", help="path to file of the dataset.")
     parser.add_argument("glove", help="path to glove file.")
+    parser.add_argument("embedding_dim", type=int, help="dimension of the embeddings")
     parser.add_argument("embeddings", help="path to where embeddings file " +
                         " will be saved.")
     parser.add_argument("w2i", help="path to w2i file")
