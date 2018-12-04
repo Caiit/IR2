@@ -10,7 +10,12 @@ embeddings due to memory limitations.
 the path to where you would like to save the generated embeddings and the path to where you would
 like to save the generated word to index (w2i) file. Example:
 ```python dataset.py data/train_data.json glove/glove.6B.50d.txt data/embeddings.pkl data/w2i.pkl```
-2. Run main.py and give the path to the data file and the path to where you saved the embeddings
+
+2. Install gensim using pip. Example: ```pip3 install gensim```
+
+3. Convert the Glove embeddings to Word2Vec embeddings. Give the path to the Glove embeddings and the path to where you would like to save the Word2Vec embeddings. Example: ```python -m gensim.scripts.glove2word2vec --input glove/glove.6B.50d.txt --output data/w2v.pkl```
+
+4. Run main.py and give the path to the data file and the path to where you saved the embeddings
 and word to index file generated with dataset.py. Also give the path to the folder containing
 the prediction model. Example:
 ```python main.py data/train_data.json data/embeddings.pkl data/w2i.pkl  models/prediction/```
