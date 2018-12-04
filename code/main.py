@@ -1,9 +1,12 @@
 # Terminal example:
-# python main.py --file=data/train_data.json --embeddings=data/embeddings.pkl
-# --w2i=w2i.pkl
+# python main.py data/train_data.json data/w2v.pkl data/embeddings.pkl
+# data/w2i.pkl ../models/prediction/
 
 
 import argparse
+from gensim.models import KeyedVectors
+# from gensim.scripts.glove2word2vec import glove2word2vec
+# from gensim.test.utils import datapath, get_tmpfile
 import json
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -42,7 +45,7 @@ def load_pickle(file_path):
     return output
 
 
-def run(data):
+def run(data, gensim_model):
     """
     Retrieve, rerank, rewrite.
     """
@@ -50,16 +53,17 @@ def run(data):
 
     for example in data:
         resources = []
+        embedded_resources = []
         class_indices = []
 
-        resources, num_comments = \
-            get_resources(example["documents"]["comments"], resources)
-        resources, num_facts = get_resources(example["documents"]["fact_table"],
-                                             resources)
-        resources, num_plots = get_resources(example["documents"]["plot"],
-                                             resources)
-        resources, num_reviews = get_resources(example["documents"]["review"],
-                                               resources)
+        num_comments = get_resources(example["documents"]["comments"],
+                                     resources, embedded_resources)
+        num_facts = get_resources(example["documents"]["fact_table"], resources,
+                                  embedded_resources)
+        num_plots = get_resources(example["documents"]["plot"], resources,
+                                  embedded_resources)
+        num_reviews = get_resources(example["documents"]["review"], resources,
+                                    embedded_resources)
 
         # Keep track of where each resource originated from.
         class_indices += [2]*num_comments
@@ -74,11 +78,11 @@ def run(data):
             last_utterances = chat[i-3:i]
             embedded_utterances = [embed_sentence(utterance) for utterance in
                                    last_utterances]
-            concat_context = get_context(last_utterances)
+            context, embedded_context = get_context(last_utterances)
 
-            # Retrieve: Takes context and resources. Uses cosine similarity to
-            # obtain relevant resource candidates.
-            similarities = retrieve(concat_context, resources)
+            # Retrieve: Takes context and resources. Uses Word Mover's Distance
+            # to obtain relevant resource candidates.
+            similarities = retrieve(context, resources, gensim_model)
 
             # Predict: Takes context and predicts the category of the resource.
             # Take the maximum length as max and pad the context to maximum
@@ -111,7 +115,7 @@ def get_context(last_utterances):
 
     context = " ".join([str(string) for string in last_utterances])
     embedded_context = embed_sentence(context)
-    return embedded_context
+    return context, embedded_context
 
 
 def embed_sentence(sentence):
@@ -151,7 +155,7 @@ def clean_sentence(sentence):
     return sentence
 
 
-def get_resources(document, resources):
+def get_resources(document, resources, embedded_resources):
     """
     Obtains the resources in a document and returns how many resources of a
     category were obtained.
@@ -165,32 +169,37 @@ def get_resources(document, resources):
             # Check if the string isn't just special characters, e.g. {}
             if not regex.search(resource):
                 embedded_resource = embed_sentence(resource)
-                resources.append(embedded_resource)
+                embedded_resources.append(embedded_resource)
+                resources.append(clean_sentence(resource))
     elif type(document) is str:
         embedded_resource = embed_sentence(document)
-        resources.append(embedded_resource)
+        embedded_resources.append(embedded_resource)
+        resources.append(clean_sentence(document))
     elif type(document) is dict:
         for key, value in document.items():
             embedded_resource = embed_sentence(value)
-            resources.append(embedded_resource)
-
+            embedded_resources.append(embedded_resource)
+            resources.append(clean_sentence(value))
     amount_category = len(resources) - amount_resources
-    return resources, amount_category
+    return amount_category
 
 
 def main(args):
     global embeddings
     global w2i
 
+    gensim_model = KeyedVectors.load_word2vec_format(args.word2vec)
+
     data = load_data(args.file)
     embeddings = load_pickle(args.embeddings)
     w2i = load_pickle(args.w2i)
-    run(data)
+    run(data, gensim_model)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("file", help="path to file of the dataset.")
+    parser.add_argument("word2vec", help="path to file of the word2vec embeddings.")
     parser.add_argument("embeddings", help="path to file of the saved embeddings")
     parser.add_argument("w2i", help="path to file of the saved w2i")
     parser.add_argument("--max_length", default=110, help="max context length for prediction")
