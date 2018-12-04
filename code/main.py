@@ -92,8 +92,8 @@ def run(data):
 
             # Rerank: Takes ranked resource candidates and class prediction and
             # reranks them.
-            ranked_resources = rerank(resources, class_indices, similarities,
-                                      predicted)
+            ranked_resources, ranked_classes = rerank(resources, class_indices,
+                                                      similarities, predicted)
 
             # Rewrite: Takes best resource candidate and its template and
             # generates response.

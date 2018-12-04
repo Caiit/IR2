@@ -16,4 +16,5 @@ def rerank(resources, class_indices, similarities, class_prediction):
 
     sorted_indices = np.argsort(scores)[::-1]
     sorted_resources = [resources[i] for i in sorted_indices]
-    return sorted_resources
+    sorted_classes = [class_indices[i] for i in sorted_indices]
+    return sorted_resources, sorted_classes
