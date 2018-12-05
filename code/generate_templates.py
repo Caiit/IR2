@@ -48,8 +48,8 @@ def run(data, resource_type):
         resources = get_resources(example["documents"][resource_type], resources, max_length)
 
     model = TemplateGenerator(batch_size, len(w2i), embedding_dim)
-    criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr = 0.00000001)
+    criterion = torch.nn.MSELoss()
+    optimizer = torch.optim.RMSprop(model.parameters(), lr = 0.9)
 
     # AANAPSSEN!!!!
     batchs = list(batches(resources, batch_size))
@@ -63,10 +63,12 @@ def run(data, resource_type):
         max_sent_size = len(batch_input[0])
 
         batch_target = batch_target.float()
-        total_sum = sum([torch.exp(torch.dot(batch_preds[i][w], batch_target[i][w])) for w in range(max_length) for i in range(batch_input.shape[0] - 1)])
-        loss = sum([torch.exp(torch.dot(batch_preds[i][w], batch_target[i][w]))/total_sum for w in range(max_length) for i in range(batch_input.shape[0] - 1)])/(max_sent_size * max_length)
+        #total_sum = sum([torch.exp(torch.dot(batch_preds[i][w], batch_target[i][w])) for w in range(max_length) for i in range(batch_input.shape[0] - 1)])
+        #loss = sum([-torch.dot(batch_preds[i][w], batch_target[i][w]) + torch.log(total_sum) for w in range(max_length) for i in range(batch_input.shape[0] - 1)])/(max_sent_size * max_length)
+        loss = criterion(batch_preds, batch_target)
         print(i, " loss ", loss)
-        #optimizer.grad()
+        #print(total_sum, -torch.dot(batch_preds[0][1], batch_target[1][2]))
+        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
     generate_samples(model, max_sent_size, 1)
@@ -146,10 +148,7 @@ def generate_samples(model, sequence_length, temperature):
         outputs = [input_embedding]
         # generate sentence of seq_length
         for i in range(5):
-            print(i)
             output_embedding = model.forward(input_embedding)[:, -1,:].unsqueeze(0)
-            print(input_embedding.shape)
-            print(output_embedding.shape)
             input_embedding = torch.cat((input_embedding, output_embedding), 1)
             outputs.append(output_embedding.squeeze(0).squeeze(0))
         output_sentence = []
