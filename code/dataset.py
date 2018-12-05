@@ -140,14 +140,20 @@ def compute_word_distribution(word_count):
 
 
 def compute_label_distribution():
-    labels, values = zip(*Counter(LABELS).items())
+    label_indices, values = zip(*Counter(LABELS).items())
 
-    indexes = np.arange(len(labels))
+    indexes = np.arange(len(label_indices))
     width = 1
+
+    label_names = ["Plot", "Review", "Comments", "Fact", "None"]
+
+    labels = [label_names[i] for i in label_indices]
 
     plt.bar(indexes, values, width)
     plt.xticks(indexes + width * 0.25, labels, rotation=90)
-    plt.tick_params(axis='both', which='major', labelsize=6)
+    plt.tick_params(axis='both', which='major', labelsize=12)
+    plt.ylabel("#Occurences")
+    plt.title("Resource category distribution")
 
     plt.show()
 
