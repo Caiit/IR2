@@ -198,8 +198,8 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("file", help="path to file of the dataset.")
-    parser.add_argument("word2vec", help="path to file of the word2vec embeddings.")
     parser.add_argument("embeddings", help="path to file of the saved embeddings")
+    parser.add_argument("word2vec", help="path to file of the word2vec embeddings.")
     parser.add_argument("w2i", help="path to file of the saved w2i")
     parser.add_argument("--max_length", default=110, help="max context length for prediction")
     parser.add_argument("prediction_model_folder", help="path to the folder that contains"
