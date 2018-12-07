@@ -4,9 +4,7 @@
 
 
 import argparse
-from gensim.models import KeyedVectors
-# from gensim.scripts.glove2word2vec import glove2word2vec
-# from gensim.test.utils import datapath, get_tmpfile
+from gensim.models import Word2Vec, KeyedVectors
 import json
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -15,6 +13,7 @@ import pickle
 from pprint import pprint
 import re
 import string
+import time
 
 from rerank import rerank
 from retrieve import retrieve
@@ -101,7 +100,6 @@ def run(data, gensim_model):
 
             # Rewrite: Takes best resource candidate and its template and
             # generates response.
-
             return
 
         return
@@ -114,8 +112,9 @@ def get_context(last_utterances):
     """
 
     context = " ".join([str(string) for string in last_utterances])
+    clean_context = clean_sentence(context)
     embedded_context = embed_sentence(context)
-    return context, embedded_context
+    return clean_context, embedded_context
 
 
 def embed_sentence(sentence):
@@ -188,7 +187,7 @@ def main(args):
     global embeddings
     global w2i
 
-    gensim_model = KeyedVectors.load_word2vec_format(args.word2vec)
+    gensim_model = KeyedVectors.load(args.word2vec, mmap='r')
 
     data = load_data(args.file)
     embeddings = load_pickle(args.embeddings)
