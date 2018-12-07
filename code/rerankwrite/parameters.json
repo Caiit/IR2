@@ -1,0 +1,9 @@
+{
+  "learning_rate": 0.001,
+  "batch_size": 10,
+  "out_size": 20,
+  "hidden_size": 128,
+  "drop_out": 0.3,
+  "num_layers": 2,
+  "MAX_LENGTH": 50
+}
