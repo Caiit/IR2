@@ -22,6 +22,15 @@ from resource_prediction import ResourcePrediction
 global embeddings
 global w2i
 
+# TODO: REMOVE WHEN REWRITE IS DONE
+class Rewrite():
+    def __init__(self, model_folder):
+        print("Please replace me with the real class")
+        # TODO: load model 
+
+    def rewrite(self, templates_list, reranked_resources):
+        return "I'm your response"
+
 
 def load_data(filename):
     """
@@ -49,6 +58,8 @@ def run(data, gensim_model):
     Retrieve, rerank, rewrite.
     """
     prediction = ResourcePrediction(args.prediction_model_folder)
+    templates  = get_templates("../data/templates.pkl")
+    rewrite    = Rewrite()
 
     for example in data:
         resources = []
@@ -73,8 +84,9 @@ def run(data, gensim_model):
         chat = example["chat"]
 
         # Loop over each of the last three utterances in the chat (the context).
-        for i in range(3, len(chat)+1):
+        for i in range(3, len(chat)):
             last_utterances = chat[i-3:i]
+            response = chat[i+1]
             embedded_utterances = [embed_sentence(utterance) for utterance in
                                    last_utterances]
             context, embedded_context = get_context(last_utterances)
@@ -100,9 +112,15 @@ def run(data, gensim_model):
 
             # Rewrite: Takes best resource candidate and its template and
             # generates response.
+            response = rewrite.rewrite(templates, ranked_resources)
+            print("Final response: \n", response)
             return
 
         return
+
+
+def get_templates(filename):
+    return load_pickle(filename)
 
 
 def get_context(last_utterances):
