@@ -12,7 +12,8 @@ We restricted our vocabulary size to 20,000 most frequent words.`
 
 Train the model:
 
-``` python train_hred.py --config_id 1 --data_dir ../data/hred/ --infer_data test --logs_dir logs
+```
+python train_hred.py --config_id 1 --data_dir ../data/hred/ --infer_data test --logs_dir logs
 --checkpoint_dir checkpoints --rnn_unit gru --learning_rate 0.0001 --batch_size 16 --dropout 0.25
 --num_layers 1 --word_emb_dim 300 --hidden_units 300 --eval_interval 1 --train=True --debug=False
 ```
