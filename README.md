@@ -11,6 +11,11 @@ embeddings due to memory limitations.
 
 2. Install gensim using pip. Example: ```pip3 install gensim```
 
-4. Run main.py and give as input: the path to the data file, the path to where you saved the pretrained GloVe embeddings, the path to where you saved the pretrained Word2Vec embeddings,
+3. Run main.py and give as input: the path to the data file, the path to where you saved the pretrained GloVe embeddings, the path to where you saved the pretrained Word2Vec embeddings,
 and the path to the word to index file generated with dataset.py. Also give the path to the folder containing the prediction model. Example:
 ```python main.py ../data/train_data.json ../data/glove_50d.pkl .../data/w2v_vectors.kv data/w2i.pkl  models/prediction/```
+
+The generated responses need to be evaluated.
+
+1. Install the implementation of the Python implementation of the ROUGE metric. Example: ```pip3 install py-rouge```
+2. Run the evaluation. Example: ```python evaluate.py```
