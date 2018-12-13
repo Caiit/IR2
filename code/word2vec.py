@@ -80,10 +80,20 @@ def visualize_embeddings(model):
         plt.annotate(word, xy=(result[i, 0], result[i, 1]))
     plt.show()
 
-if __name__ == "__main__":
-    data = read_data("../data/train_data.json")
+
+def main(args):
+    data = read_data(args.file)
     model = get_gensim_model(data)
     visualize_embeddings(model)
 
-    # word_vectors = model.wv
-    # word_vectors.save("../data/w2v_vectors.kv")
+    word_vectors = model.wv
+    word_vectors.save(args.w2v)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--file", help="path to file of the dataset.", default="../data/train_data.json")
+    parser.add_argument("--w2v", help="path to file where Word2Vec vectors will be saved.", default="../embeddings/w2v_vectors.kv")
+    args = parser.parse_args()
+
+    main(args)

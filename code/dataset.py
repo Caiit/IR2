@@ -1,7 +1,3 @@
-# Terminal exmaple:
-# python dataset.py --file=data/train_data.json --glove=glove/glove.6B.50d.txt
-# --embeddings=embeddings.pkl --w2i=w2i.pkl
-
 import argparse
 from collections import Counter
 import json
@@ -9,12 +5,12 @@ from nltk.tokenize import word_tokenize
 import numpy as np
 import pickle
 from pprint import pprint
-import re
 import string
 import matplotlib.pyplot as plt
 
 TEXT = []
 LABELS = []
+
 
 def read_data(filename):
     """
@@ -63,7 +59,8 @@ def get_text(data_entry):
     """
     Retrieves the text in the data by looking in the following keys: chat,
     documents[comments], documents[fact_table], documents[plot],
-    documents[review], movie_name and spans, and obtain the labels of the responses.
+    documents[review], movie_name and spans, and obtain the labels of the
+    responses.
     """
     for key, value in data_entry.items():
         if key != "chat_id" and key != "imdb_id" and key != "labels":
@@ -108,8 +105,12 @@ def load_embeddings(file_path, w2i, embedding_dim):
             index = w2i.get(word)
 
             if index:
-                embedding = np.array(split_line[1:], dtype="float32")
-                embeddings[index] = embedding
+                try:
+                    embedding = np.array(split_line[1:], dtype="float32")
+                    embeddings[index] = embedding
+                except ValueError:
+                    pass
+    print("Embedding:", count)
     return embeddings
 
 
@@ -159,8 +160,6 @@ def compute_label_distribution():
 
 
 def main(args):
-    # Data: chat, chat_id, documents (comments, fact_table, plot, review),
-    # imdb_id, labels, movie_name, spans
     data = read_data(args.file)
     embeddings, w2i, word_count = preprocess_data(data, args.glove,
                                                   args.embedding_dim)
@@ -174,12 +173,11 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("file", help="path to file of the dataset.")
-    parser.add_argument("glove", help="path to glove file.")
-    parser.add_argument("embedding_dim", type=int, help="dimension of the embeddings")
-    parser.add_argument("embeddings", help="path to where embeddings file " +
-                        " will be saved.")
-    parser.add_argument("w2i", help="path to w2i file")
+    parser.add_argument("--file", help="path to file of the dataset.", default="../data/train_data.json")
+    parser.add_argument("--glove", help="path to glove file.", default="../glove/glove.6B.50d.txt")
+    parser.add_argument("--embedding_dim", type=int, help="dimension of the embeddings", default=50)
+    parser.add_argument("--embeddings", help="path to where embeddings file will be saved.", default="../embeddings/glove_50d.pkl")
+    parser.add_argument("--w2i", help="path to w2i file", default="../embeddings/w2i.pkl")
     parser.add_argument("--stats", type=bool, default=False, help="compute statistics about the dataset")
     args = parser.parse_args()
 
