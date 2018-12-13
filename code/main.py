@@ -22,13 +22,13 @@ class Rewrite():
         return "I'm your response"
 
 
-def run(data, gensim_model, embeddings):
+def run(data, gensim_model, embeddings, w2i):
     """
     Retrieve, rerank, rewrite.
     """
     prediction = ResourcePrediction(args.prediction_model_folder)
-    templates  = get_templates("../data/templates.pkl")
-    rewrite    = Rewrite()
+    # templates  = get_templates("../data/templates.pkl")
+    # rewrite    = Rewrite()
 
     for example in data:
         resources = []
@@ -57,7 +57,7 @@ def run(data, gensim_model, embeddings):
         for i in range(3, len(chat)):
             last_utterances = chat[i-3:i]
             response = chat[i+1]
-            embedded_utterances = [embed_sentence(utterance) for utterance in
+            embedded_utterances = [embed_sentence(utterance, embeddings, w2i) for utterance in
                                    last_utterances]
             context, embedded_context = get_context(last_utterances, embeddings, w2i)
 
@@ -89,14 +89,12 @@ def run(data, gensim_model, embeddings):
 
 
 def main(args):
-    global w2i
-
     gensim_model = KeyedVectors.load(args.word2vec, mmap='r')
 
     data = load_data(args.file)
     embeddings = load_pickle(args.embeddings)
     w2i = load_pickle(args.w2i)
-    run(data, gensim_model, embeddings)
+    run(data, gensim_model, embeddings, w2i)
 
 
 if __name__ == "__main__":
