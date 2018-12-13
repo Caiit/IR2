@@ -6,20 +6,12 @@ import time
 
 from rerank import rerank
 from retrieve import retrieve
+from rewrite import Rewrite
 from resource_prediction import ResourcePrediction
 from data_utils import load_data, load_pickle, get_context, embed_sentence, \
     clean_sentence, get_resources, get_templates
 
 global w2i
-
-# TODO: REMOVE WHEN REWRITE IS DONE
-class Rewrite():
-    def __init__(self, model_folder):
-        print("Please replace me with the real class")
-        # TODO: load model
-
-    def rewrite(self, templates_list, reranked_resources):
-        return "I'm your response"
 
 
 def run(data, gensim_model, embeddings, w2i):
@@ -27,8 +19,8 @@ def run(data, gensim_model, embeddings, w2i):
     Retrieve, rerank, rewrite.
     """
     prediction = ResourcePrediction(args.prediction_model_folder)
-    # templates  = get_templates("../data/templates.pkl")
-    # rewrite    = Rewrite()
+    templates  = get_templates("../data/templates.pkl")
+    rewrite    = Rewrite(FOLDER, embeddings, w2i)
 
     for example in data:
         resources = []
@@ -82,7 +74,9 @@ def run(data, gensim_model, embeddings, w2i):
 
             # Rewrite: Takes best resource candidate and its template and
             # generates response.
-            response = rewrite.rewrite(templates, ranked_resources)
+            best_response, best_template = rewrite.rerank(templates, ranked_resources, ranked_classes)
+
+            response = rewrite.rewrite(best_response, best_template)
             print("Final response: \n", response)
             return
         return
