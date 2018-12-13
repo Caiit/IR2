@@ -101,3 +101,7 @@ def get_resources(document, resources, embedded_resources, embeddings, w2i):
             resources.append(clean_sentence(value))
     amount_category = len(resources) - amount_resources
     return amount_category
+
+
+def get_templates(filename):
+    return load_pickle(filename)
