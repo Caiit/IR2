@@ -1,3 +1,4 @@
+import argparse
 import json
 from gensim.models import Word2Vec
 import matplotlib.pyplot as plt
@@ -27,7 +28,7 @@ def get_gensim_model(data):
         get_text(item, TEXT)
     TEXT = [item for item in TEXT if len(item) > 0]
 
-    model = Word2Vec(TEXT, size=100, window=5, min_count=1, workers=4)
+    model = Word2Vec(TEXT, size=100, window=10, min_count=1, workers=4)
     return model
 
 
@@ -43,7 +44,6 @@ def get_text(data_entry, TEXT):
             if isinstance(value, dict):
                 get_text(value, TEXT)
             elif isinstance(value, list):
-                # print([clean_text(str(item)) for item in value])
                 TEXT.extend([clean_text(str(item)) for item in value])
             else:
                 text = clean_text(str(value))
@@ -84,7 +84,7 @@ def visualize_embeddings(model):
 def main(args):
     data = read_data(args.file)
     model = get_gensim_model(data)
-    visualize_embeddings(model)
+    # visualize_embeddings(model)
 
     word_vectors = model.wv
     word_vectors.save(args.w2v)
