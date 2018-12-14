@@ -76,7 +76,9 @@ def run(data, gensim_model, embeddings, w2i):
             # generates response.
             best_response, best_template = rewrite.rerank(templates, ranked_resources, ranked_classes)
 
+            # Response here is still embedding!
             response = rewrite.rewrite(best_response, best_template)
+            # Rewrite from embedding to words:
             print("Final response: \n", response)
             return
         return

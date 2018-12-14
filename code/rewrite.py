@@ -6,7 +6,7 @@ import torch.nn as nn
 import numpy as np
 
 class Rewrite():
-    def __init__(self, model_folder, embeddings, w2i):
+    def __init__(self, model_folder, embeddings, w2i, SOS_token, EOS_token):
         #print("Please replace me with the real class")
         ## TODO: load model
         self.saliencymodel = load_saliency_model(model_folder)
@@ -14,6 +14,8 @@ class Rewrite():
         self.embeddings = embeddings
         self.w2i = w2i
         self.embedding_size = len(embeddings[w2i.values()[0]])
+        self.SOS = SOS_token
+        self.EOS = EOS_token
 
     def load_saliency_model(self, model_folder):
         model = torch.load(model_folder + "/saliency.pt")
@@ -40,5 +42,30 @@ class Rewrite():
         return embed_resource, embed_sentence(best_template, self.embeddings, self.w2i)
 
     def rewrite(self, best_response, best_template):
-        # DIT MOET NOG ANDERS MET FOR LOOP
-        return self.encoder_decoder.forward(best_response, best_template)
+        # Inputs are both embeddings
+        target_length = 50 # WAT ZULLEN WE DOEN?
+        complete_sent = torch.cat(best_response, best_template)
+        input_length = complete_sent.size(0)
+        encoder_outputs = torch.zeros(max_length, self.encoder_decoder.encoder.hidden_size)
+
+        for ei in range(input_length):
+            encoder_output, encoder_hidden = self.encoder_decoder.encoder.forward(input_tensor[ei], encoder_hidden)
+            encoder_outputs[ei] = encoder_output[0, 0]
+
+        decoder_input = torch.tensor([[self.SOS]])
+        decoder_hidden = encoder_hidden
+        decoded_words = []
+
+        for di in range(target_length):
+            decoder_output, decoder_hidden, decoder_attention = self.encoder_decoder.decoder(decoder_input,
+                decoder_hidden, encoder_outputs)
+            topv, topi = decoder_output.topk(1)
+            decoder_input = topi.squeeze().detach()  # detach from history as input
+
+            if decoder_input.item() == self.EOS:
+                decoded_words.append(self.EOS)
+                break
+            else:
+                decoded_words.append(topi.item())
+
+        return decoded_words

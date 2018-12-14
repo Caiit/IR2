@@ -19,7 +19,7 @@ class EncoderRNN(nn.Module):
         return torch.zeros(1, 1, self.hidden_size, device=device)
 
 class AttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, dropout_p=0.1, max_length=MAX_LENGTH):
+    def __init__(self, hidden_size, output_size, dropout_p=0.3, max_length=MAX_LENGTH):
         super(AttnDecoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.output_size = output_size
@@ -56,6 +56,6 @@ class AttnDecoderRNN(nn.Module):
         return torch.zeros(1, 1, self.hidden_size, device=device)
 
 class CreateResponse():
-    def __init__(self,):
-        self.encoder = EncoderRNN(DINGEN MEEGEVEN)
-        self.decoder = AttnDecoderRNN(DINGEN MEEGEVEN)
+    def __init__(self, input_size, hidden_size, output_size, dropout_p, max_length):
+        self.encoder = EncoderRNN(input_size, hidden_size)
+        self.decoder = AttnDecoderRNN(hidden_size, output_size, dropout_p, max_length)
