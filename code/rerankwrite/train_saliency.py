@@ -49,7 +49,7 @@ def train(args):
             loss = 0
             for j, template in enumerate(flattened_templates):
                 score = saliency_model.forward(resource, template)
-                actual_score = rouge.get_scores(flattened_templates_raw[j], resources[i])
+                actual_score = rouge.get_scores(flattened_templates_raw[j], resources[i])[0]["rouge-1"]["f"]
 
                 loss += loss_func(score, actual_score)
             # Normalize
@@ -79,7 +79,7 @@ def train(args):
         loss = 0
         for j, template in enumerate(flattened_templates):
             score = saliency_model.forward(resource, template)
-            actual_score = rouge.get_scores(flattened_templates_raw[j], resources[i])
+            actual_score = rouge.get_scores(flattened_templates_raw[j], resources[i])[0]["rouge-1"]["f"]
 
             loss += loss_func(score, actual_score)
     loss /= total_resources
