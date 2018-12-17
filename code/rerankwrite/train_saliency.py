@@ -9,83 +9,88 @@ import torch.nn as nn
 import torch.optim as optim
 from rouge import Rouge
 import matplotlib.pyplot as plt
+import argparse
+import numpy as np
+
+def convert_to_words(complete_sent_emb, w2emb):
+    output_sentence = []
+    for word in complete_sent_emb:
+        emb_dists = [torch.norm(torch.Tensor(word) - torch.Tensor(embs)).item() for embs in list(w2emb.values())]
+        index = np.argmin(emb_dists)
+        output_sentence.append(list(w2emb.keys())[index])
+
+    return " ".join(output_sentence)
 
 def train(args):
-    templates  = get_templates("../data/templates.pkl")
-
+    print("Load data...")
     data_train = load_data(args.folder + "/train_data.json")
     data_test = load_data(args.folder + "/test_data.json")
     embeddings = load_pickle(args.embeddings)
     w2i = load_pickle(args.w2i)
-    flattened_templates = [embed_sentence(item, embeddings, w2i) for templates_class in templates for item in templates_class]
-    flattened_templates_raw = [item for templates_class in templates for item in templates_class]
+    w2emb = load_pickle(args.w2emb)
+    templates_emb  = get_templates("../../data/templates.pkl")
 
-    # Embedding size of length sent?
-    saliency_model = SaliencyPrediction(len(embeddings[0]))
-    loss_func = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(saliency_model.parameters())
+    print("Do the templates...")
+    flattened_templates_emb = [y for x in templates_emb for y in x]
+    cut_templates = [temp[-args.max_length:] for temp in flattened_templates_emb]
+    flattened_templates_emb_padded = [np.pad(temp1, ((0, args.max_length - len(temp1)), (0, 0)),
+                                            "constant", constant_values=(len(w2i))) for temp1 in cut_templates]
+    actual_templates = [convert_to_words(sent, w2emb) for sent in flattened_templates_emb]
+
+    emb_size = len(embeddings[0])
+    model = SaliencyPrediction(emb_size*args.max_length)
+    #loss_func = nn.NLLLoss()
+    loss_func = nn.BCELoss()
+    optimizer = optim.Adam(model.parameters())
     rouge = Rouge()
 
-    for example in data_train:
+    for example in data_train[:100]:
         resources = []
         embedded_resources = []
         class_indices = []
 
-        num_comments = get_resources(example["documents"]["comments"],
-                                     resources, embedded_resources, embeddings, w2i)
-        num_facts = get_resources(example["documents"]["fact_table"], resources,
-                                  embedded_resources, embeddings, w2i)
-        num_plots = get_resources(example["documents"]["plot"], resources,
-                                  embedded_resources, embeddings, w2i)
-        num_reviews = get_resources(example["documents"]["review"], resources,
-                                    embedded_resources, embeddings, w2i)
+        get_resources(example["documents"]["comments"], resources,
+                      embedded_resources, embeddings, w2i)
+        num_comments = len(resources)
+        get_resources(example["documents"]["fact_table"], resources,
+                      embedded_resources, embeddings, w2i)
+        num_facts = len(resources) - num_comments
+        get_resources(example["documents"]["plot"], resources,
+                      embedded_resources, embeddings, w2i)
+        num_plots = len(resources) - num_comments - num_facts
+        get_resources(example["documents"]["review"], resources,
+                      embedded_resources, embeddings, w2i)
+        num_reviews = len(resources) - num_comments - num_facts - num_plots
 
     # Not yet batch
     total_resources = len(embedded_resources)
     for epoch in range(5):
         print("Epoch: " + str(epoch))
         for i, resource in enumerate(embedded_resources):
+            sent = " ".join(resources[i])
+            if sent == "" or sent == "eod":
+                continue;
             optimizer.zero_grad()
-            loss = 0
-            for j, template in enumerate(flattened_templates):
-                score = saliency_model.forward(resource, template)
-                actual_score = rouge.get_scores(flattened_templates_raw[j], resources[i])[0]["rouge-1"]["f"]
-
-                loss += loss_func(score, actual_score)
-            # Normalize
-            loss /= (j+1)
+            #all_scores = []
+            #all_real_scores = []
+            padd_resource = resource[-args.max_length:]
+            padd_resource = np.pad(padd_resource, ((0, args.max_length - len(padd_resource)), (0, 0)), "constant",
+                                constant_values=(len(w2i)))
+            tensor_templates = []
+            actual_scores = []
+            all_temps = torch.Tensor(flattened_templates_emb_padded)
+            all_res = torch.Tensor(padd_resource).unsqueeze(0).repeat(20, 1, 1)
+            size_inp = all_res.size()
+            for j, template in enumerate(flattened_templates_emb_padded):
+                actual_score = rouge.get_scores(actual_templates[j], " ".join(resources[i]))[0]["rouge-1"]["f"]
+                actual_scores.append(actual_score)
+            scores = model.forward(all_res.reshape(size_inp[0], size_inp[1]*size_inp[2]), all_temps.reshape(size_inp[0], size_inp[1]*size_inp[2]))
+            loss = loss_func(scores, torch.Tensor(actual_scores))
             loss.backward()
             optimizer.step()
-            print("Step: " + str(i) + "/" + total_resources + ", the loss is: " + str(loss))
+            print("Step: " + str(i) + "/" + str(total_resources) + ", the loss is: " + str(loss.item()))
 
-    torch.save(saliency_model, "../models/rewrite/saliency.pt")
-
-    for example in data_test:
-        resources = []
-        embedded_resources = []
-        class_indices = []
-
-        num_comments = get_resources(example["documents"]["comments"],
-                                     resources, embedded_resources, embeddings, w2i)
-        num_facts = get_resources(example["documents"]["fact_table"], resources,
-                                  embedded_resources, embeddings, w2i)
-        num_plots = get_resources(example["documents"]["plot"], resources,
-                                  embedded_resources, embeddings, w2i)
-        num_reviews = get_resources(example["documents"]["review"], resources,
-                                    embedded_resources, embeddings, w2i)
-
-    total_resources = len(embedded_resources)
-    for i, resource in enumerate(embedded_resources):
-        loss = 0
-        for j, template in enumerate(flattened_templates):
-            score = saliency_model.forward(resource, template)
-            actual_score = rouge.get_scores(flattened_templates_raw[j], resources[i])[0]["rouge-1"]["f"]
-
-            loss += loss_func(score, actual_score)
-    loss /= total_resources
-    print("Loss on the test set: " + str(loss))
-
-
+    torch.save(model, "../../models/rewrite/saliency.pt")
     return
 
 
@@ -93,10 +98,12 @@ def train(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--file", help="path to file of the dataset.", default="../data")
-    parser.add_argument("--embeddings", help="path to file of the saved embeddings", default="../embeddings/glove_50d.pkl")
-    parser.add_argument("--word2vec", help="path to file of the word2vec embeddings.", default="../embeddings/w2v_vectors.kv")
-    parser.add_argument("--w2i", help="path to file of the saved w2i", default="../embeddings/w2i.pkl")
+    parser.add_argument("--folder", help="path to file of the dataset.", default="../../data")
+    parser.add_argument("--embeddings", help="path to file of the saved embeddings", default="../../embeddings/glove_50d.pkl")
+    parser.add_argument("--word2vec", help="path to file of the word2vec embeddings.", default="../../embeddings/w2v_vectors.kv")
+    parser.add_argument("--w2i", help="path to file of the saved w2i", default="../../embeddings/w2i.pkl")
+    parser.add_argument("--w2emb", help="path to the file of the saved w2emb", default="../../embeddings/w2emb.pkl")
+    parser.add_argument("--max_length", help="max length of sentences", default=110)
 
     args = parser.parse_args()
     train(args)

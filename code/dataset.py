@@ -31,8 +31,8 @@ def preprocess_data(data, glove_file, embedding_dim):
     vocab, word_count = get_vocab(data)
     w2i = {word: idx for idx, word in enumerate(vocab)}
     i2w = {idx: word for idx, word in enumerate(vocab)}
-    embeddings = load_embeddings(glove_file, w2i, embedding_dim)
-    return embeddings, w2i, word_count
+    embeddings, w2emb = load_embeddings(glove_file, w2i, embedding_dim)
+    return embeddings, w2i, word_count, w2emb
 
 
 def get_vocab(data):
@@ -96,6 +96,7 @@ def load_embeddings(file_path, w2i, embedding_dim):
     a dictionary.
     """
 
+    w2emb = dict()
     with open(file_path) as f:
         embeddings = np.zeros((len(w2i), embedding_dim))
 
@@ -108,10 +109,11 @@ def load_embeddings(file_path, w2i, embedding_dim):
                 try:
                     embedding = np.array(split_line[1:], dtype="float32")
                     embeddings[index] = embedding
+                    w2emb[word] = embedding
                 except ValueError:
                     pass
-    print("Embedding:", count)
-    return embeddings
+    #print("Embedding:", count)
+    return embeddings, w2emb
 
 
 def save_pickle(file_path, input):
@@ -161,10 +163,11 @@ def compute_label_distribution():
 
 def main(args):
     data = read_data(args.file)
-    embeddings, w2i, word_count = preprocess_data(data, args.glove,
+    embeddings, w2i, word_count, w2emb = preprocess_data(data, args.glove,
                                                   args.embedding_dim)
     save_pickle(args.embeddings, embeddings)
     save_pickle(args.w2i, w2i)
+    save_pickle(args.w2emb, w2emb)
 
     if args.stats:
         compute_word_distribution(word_count)
@@ -178,6 +181,7 @@ if __name__ == "__main__":
     parser.add_argument("--embedding_dim", type=int, help="dimension of the embeddings", default=50)
     parser.add_argument("--embeddings", help="path to where embeddings file will be saved.", default="../embeddings/glove_50d.pkl")
     parser.add_argument("--w2i", help="path to w2i file", default="../embeddings/w2i.pkl")
+    parser.add_argument("--w2emb", help="path to w2emb file", default="../embeddings/w2emb.pkl")
     parser.add_argument("--stats", type=bool, default=False, help="compute statistics about the dataset")
     args = parser.parse_args()
 
