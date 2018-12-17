@@ -6,7 +6,7 @@ import time
 
 from rerank import rerank
 from retrieve import retrieve
-from rewrite import Rewrite
+# from rewrite import Rewrite
 from resource_prediction import ResourcePrediction
 from data_utils import load_data, load_pickle, get_context, embed_sentence, \
     clean_sentence, get_resources, get_templates
@@ -19,22 +19,26 @@ def run(data, gensim_model, embeddings, w2i):
     Retrieve, rerank, rewrite.
     """
     prediction = ResourcePrediction(args.prediction_model_folder)
-    templates  = get_templates("../data/templates.pkl")
-    rewrite    = Rewrite(FOLDER, embeddings, w2i)
+    # templates  = get_templates("../data/templates.pkl")
+    # rewrite    = Rewrite(FOLDER, embeddings, w2i)
 
     for example in data:
         resources = []
         embedded_resources = []
         class_indices = []
 
-        num_comments = get_resources(example["documents"]["comments"],
-                                     resources, embedded_resources, embeddings, w2i)
-        num_facts = get_resources(example["documents"]["fact_table"], resources,
-                                  embedded_resources, embeddings, w2i)
-        num_plots = get_resources(example["documents"]["plot"], resources,
-                                  embedded_resources, embeddings, w2i)
-        num_reviews = get_resources(example["documents"]["review"], resources,
-                                    embedded_resources, embeddings, w2i)
+        get_resources(example["documents"]["comments"], resources,
+                      embedded_resources, embeddings, w2i)
+        num_comments = len(resources)
+        get_resources(example["documents"]["fact_table"], resources,
+                      embedded_resources, embeddings, w2i)
+        num_facts = len(resources) - num_comments
+        get_resources(example["documents"]["plot"], resources,
+                      embedded_resources, embeddings, w2i)
+        num_plots = len(resources) - num_comments - num_facts
+        get_resources(example["documents"]["review"], resources,
+                      embedded_resources, embeddings, w2i)
+        num_reviews = len(resources) - num_comments - num_facts - num_plots
 
         # Keep track of where each resource originated from.
         class_indices += [2]*num_comments
@@ -46,7 +50,7 @@ def run(data, gensim_model, embeddings, w2i):
 
 
         # Loop over each of the last three utterances in the chat (the context).
-        for i in range(3, len(chat)):
+        for i in range(3, len(chat)-1):
             last_utterances = chat[i-3:i]
             response = chat[i+1]
             embedded_utterances = [embed_sentence(utterance, embeddings, w2i) for utterance in
@@ -80,8 +84,8 @@ def run(data, gensim_model, embeddings, w2i):
             response = rewrite.rewrite(best_response, best_template)
             # Rewrite from embedding to words:
             print("Final response: \n", response)
-            return
-        return
+        #     return
+        # return
 
 
 def main(args):

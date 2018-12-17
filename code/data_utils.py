@@ -76,31 +76,24 @@ def clean_sentence(sentence):
 
 def get_resources(document, resources, embedded_resources, embeddings, w2i):
     """
-    Obtains the resources in a document and returns how many resources of a
-    category were obtained.
+    Obtains the resources in a document.
     """
 
     regex = re.compile("[@_!#$%^&*()<>?/\|}{~:]")
-    amount_resources = len(resources)
 
     if type(document) is list:
         for resource in document:
             # Check if the string isn't just special characters, e.g. {}
             if not regex.search(resource):
-                embedded_resource = embed_sentence(resource, embeddings, w2i)
-                embedded_resources.append(embedded_resource)
-                resources.append(clean_sentence(resource))
+                get_resources(resource, resources, embedded_resources,
+                              embeddings, w2i)
     elif type(document) is str:
         embedded_resource = embed_sentence(document, embeddings, w2i)
         embedded_resources.append(embedded_resource)
         resources.append(clean_sentence(document))
     elif type(document) is dict:
         for key, value in document.items():
-            embedded_resource = embed_sentence(value, embeddings, w2i)
-            embedded_resources.append(embedded_resource)
-            resources.append(clean_sentence(value))
-    amount_category = len(resources) - amount_resources
-    return amount_category
+            get_resources(value, resources, embedded_resources, embeddings, w2i)
 
 
 def get_templates(filename):
