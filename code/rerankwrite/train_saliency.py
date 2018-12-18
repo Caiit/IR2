@@ -13,7 +13,8 @@ import argparse
 import numpy as np
 from tqdm import tqdm
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = "cpu"
 
 def convert_to_words(complete_sent_emb, w2emb):
     output_sentence = []
@@ -87,7 +88,7 @@ def train(args):
 
     print("Now learn.....")
     total_resources = len(embedded_resources)
-    for epoch in range(10):
+    for epoch in range(5):
         print("Epoch: " + str(epoch))
         avg_loss = 0
         for i, resource in tqdm(enumerate(embedded_resources)):
@@ -124,6 +125,7 @@ def train(args):
             optimizer.step()
         #print("Step: " + str(i) + "/" + str(total_resources) + ", the loss is: " + str(loss.item()))
         print("For this epoch, we found avg_loss: " + str(avg_loss/total_resources))
+        torch.save(model, "../../models/rewrite/saliency.pt")
 
 
         total_loss = 0
@@ -160,7 +162,6 @@ def train(args):
             loss = loss_func(scores, actual_scores)
             total_loss += loss.item()
         print("Average loss is: " + str(total_loss/amount_res))
-    torch.save(model, "../../models/rewrite/saliency.pt")
 
     return
 
