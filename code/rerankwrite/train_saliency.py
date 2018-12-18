@@ -43,8 +43,7 @@ def train(args):
     print("Now load the model...")
     emb_size = len(embeddings[0])
     model = SaliencyPrediction(emb_size*args.max_length)
-    if args.use_gpu:
-        model.to_device(device)
+    model.to(device)
     #loss_func = nn.NLLLoss()
     loss_func = nn.BCELoss()
     #optimizer = optim.Adam(model.parameters())
@@ -117,10 +116,9 @@ def train(args):
             x1 = all_res.reshape(size_inp[0], size_inp[1]*size_inp[2])
             x2 = all_temps.reshape(size_inp[0], size_inp[1]*size_inp[2])
             actual_scores = torch.Tensor(actual_scores).unsqueeze(1)
-            if args.use_gpu:
-                x1.to_device(device)
-                x2.to_device(device)
-                actual_scores.to_device(device)
+            x1.to(device)
+            x2.to(device)
+            actual_scores.to(device)
             scores = model.forward(x1, x2)
             loss = loss_func(scores, actual_scores)
             avg_loss += loss.item()
@@ -157,10 +155,9 @@ def train(args):
             if i % 100 == 0:
                 print("Iteration", str(i))
 
-            if args.use_gpu:
-                x1.to_device(device)
-                x2.to_device(device)
-                actual_scores.to_device(device)
+            x1.to(device)
+            x2.to(device)
+            actual_scores.to(device)
             scores = model.forward(x1, x2)
             loss = loss_func(scores, actual_scores)
             total_loss += loss.item()
@@ -180,7 +177,6 @@ if __name__ == "__main__":
     parser.add_argument("--w2i", help="path to file of the saved w2i", default="../../embeddings/w2i.pkl")
     parser.add_argument("--w2emb", help="path to the file of the saved w2emb", default="../../embeddings/w2emb.pkl")
     parser.add_argument("--max_length", help="max length of sentences", default=110)
-    parser.add_argument("--use_gpu", help="whether to use gpu or not", type=bool, default=False)
 
     args = parser.parse_args()
     train(args)
