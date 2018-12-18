@@ -4,20 +4,25 @@ import pickle
 import string
 from nltk.tokenize import word_tokenize
 
-
+global use_gensim
 global embeddings
 global w2i
 
-def load_data_and_labels(filename, data_folder, max_length):
+
+def load_data_and_labels(filename, data_folder, max_length, using_gensim,
+                         embedding_file, w2i_file):
     """Load sentences and labels"""
     global embeddings
     global  w2i
+    global use_gensim
+
+    use_gensim = using_gensim
 
     with open(filename, encoding="utf-8") as f:
         data = json.load(f)
-    with open(data_folder + "embeddings.pkl", "rb") as f:
+    with open(embedding_file, "rb") as f:
         embeddings = pickle.load(f)
-    with open(data_folder + "w2i.pkl", "rb") as f:
+    with open(w2i_file, "rb") as f:
         w2i = pickle.load(f)
 
     x_raw = []
@@ -54,21 +59,35 @@ def embed_sentence(sentence, max_length):
 
     global embeddings
     global w2i
+    global use_gensim
 
     sentence = clean_sentence(sentence)
     sentence = word_tokenize(sentence)
     sentence = sentence[-max_length:]
 
-    embedded_sentence = np.ones((max_length, embeddings[0].shape[0])) * len(w2i)
+    if use_gensim:
+        embedding_dim = embeddings.vector_size
+    else:
+        embedding_dim = embeddings[0].shape[0]
+
+    embedded_sentence = np.ones((max_length, embedding_dim)) * len(w2i)
 
     for i, word in enumerate(sentence):
         if i == max_length: break
-        if w2i.get(word):
-            index = w2i[word]
-            embedding = embeddings[index]
-            embedded_sentence[i] = embedding
+
+        if use_gensim:
+            try:
+                embedded_sentence[i] = embeddings[word]
+            except KeyError:
+                embedded_sentence[i] = 0
         else:
-            embedded_sentence[i] = 0
+            if w2i.get(word):
+                index = w2i[word]
+                embedding = embeddings[index]
+                embedded_sentence[i] = embedding
+            else:
+                embedded_sentence[i] = 0
+
     return embedded_sentence
 
 
