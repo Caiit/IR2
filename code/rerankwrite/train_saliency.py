@@ -53,8 +53,7 @@ def train(args):
     print("Read in train data...")
     resources = []
     embedded_resources = []
-    print("verwijder verwijder")
-    for example in tqdm(data_train[:10]):
+    for example in tqdm(data_train):
         get_resources(example["documents"]["comments"], resources,
                       embedded_resources, embeddings, w2i)
         num_comments = len(resources)
@@ -72,8 +71,7 @@ def train(args):
     print("Read in test data...")
     resources_test = []
     embedded_resources_test = []
-    print("verwijder verwijder")
-    for example in tqdm(data_test[:10]):
+    for example in tqdm(data_test):
         get_resources(example["documents"]["comments"], resources_test,
                       embedded_resources_test, embeddings, w2i)
         num_comments = len(resources)
