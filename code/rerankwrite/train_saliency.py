@@ -13,6 +13,8 @@ import argparse
 import numpy as np
 from tqdm import tqdm
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 def convert_to_words(complete_sent_emb, w2emb):
     output_sentence = []
     for word in complete_sent_emb:
@@ -42,7 +44,7 @@ def train(args):
     emb_size = len(embeddings[0])
     model = SaliencyPrediction(emb_size*args.max_length)
     if args.use_gpu:
-        model.cuda()
+        model.to_device(device)
     #loss_func = nn.NLLLoss()
     loss_func = nn.BCELoss()
     #optimizer = optim.Adam(model.parameters())
@@ -52,7 +54,8 @@ def train(args):
     print("Read in train data...")
     resources = []
     embedded_resources = []
-    for example in tqdm(data_train):
+    print("verwijder verwijder")
+    for example in tqdm(data_train[:10]):
         get_resources(example["documents"]["comments"], resources,
                       embedded_resources, embeddings, w2i)
         num_comments = len(resources)
@@ -70,7 +73,8 @@ def train(args):
     print("Read in test data...")
     resources_test = []
     embedded_resources_test = []
-    for example in tqdm(data_test):
+    print("verwijder verwijder")
+    for example in tqdm(data_test[:10]):
         get_resources(example["documents"]["comments"], resources_test,
                       embedded_resources_test, embeddings, w2i)
         num_comments = len(resources)
@@ -114,9 +118,9 @@ def train(args):
             x2 = all_temps.reshape(size_inp[0], size_inp[1]*size_inp[2])
             actual_scores = torch.Tensor(actual_scores).unsqueeze(1)
             if args.use_gpu:
-                x1.cuda()
-                x2.cuda()
-                actual_scores.cuda()
+                x1.to_device(device)
+                x2.to_device(device)
+                actual_scores.to_device(device)
             scores = model.forward(x1, x2)
             loss = loss_func(scores, actual_scores)
             avg_loss += loss.item()
@@ -154,9 +158,9 @@ def train(args):
                 print("Iteration", str(i))
 
             if args.use_gpu:
-                x1.cuda()
-                x2.cuda()
-                actual_scores.cuda()
+                x1.to_device(device)
+                x2.to_device(device)
+                actual_scores.to_device(device)
             scores = model.forward(x1, x2)
             loss = loss_func(scores, actual_scores)
             total_loss += loss.item()
