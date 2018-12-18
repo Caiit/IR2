@@ -28,5 +28,3 @@ class ResourcePrediction():
                 prediction = sess.run(probs, {input_x: x, dropout_keep_prob: 1.0})
 
                 return prediction
-
-

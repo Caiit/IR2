@@ -8,13 +8,10 @@ from rerank import rerank
 from retrieve import retrieve
 # from rewrite import Rewrite
 from resource_prediction import ResourcePrediction
-from data_utils import load_data, load_pickle, get_context, embed_sentence, \
-    clean_sentence, get_resources, get_templates
-
-global w2i
+import data_utils
 
 
-def run(data, gensim_model, embeddings, w2i):
+def run(data, word2vec):
     """
     Retrieve, rerank, rewrite.
     """
@@ -27,17 +24,17 @@ def run(data, gensim_model, embeddings, w2i):
         embedded_resources = []
         class_indices = []
 
-        get_resources(example["documents"]["comments"], resources,
-                      embedded_resources, embeddings, w2i)
+        data_utils.get_resources(example["documents"]["comments"], resources,
+                                 embedded_resources)
         num_comments = len(resources)
-        get_resources(example["documents"]["fact_table"], resources,
-                      embedded_resources, embeddings, w2i)
+        data_utils.get_resources(example["documents"]["fact_table"], resources,
+                                 embedded_resources)
         num_facts = len(resources) - num_comments
-        get_resources(example["documents"]["plot"], resources,
-                      embedded_resources, embeddings, w2i)
+        data_utils.get_resources(example["documents"]["plot"], resources,
+                                 embedded_resources)
         num_plots = len(resources) - num_comments - num_facts
-        get_resources(example["documents"]["review"], resources,
-                      embedded_resources, embeddings, w2i)
+        data_utils.get_resources(example["documents"]["review"], resources,
+                                 embedded_resources)
         num_reviews = len(resources) - num_comments - num_facts - num_plots
 
         # Keep track of where each resource originated from.
@@ -48,29 +45,33 @@ def run(data, gensim_model, embeddings, w2i):
 
         chat = example["chat"]
 
-
         # Loop over each of the last three utterances in the chat (the context).
         for i in range(3, len(chat)-1):
             last_utterances = chat[i-3:i]
             response = chat[i+1]
-            
+
             if len(response) > 0:
-                embedded_utterances = [embed_sentence(utterance, embeddings, w2i) for utterance in
-                                       last_utterances]
-                context, embedded_context = get_context(last_utterances, embeddings, w2i)
+                embedded_utterances = [data_utils.embed_sentence(utterance) for
+                                       utterance in last_utterances]
+                context, embedded_context = data_utils.get_context(last_utterances)
 
                 # Retrieve: Takes context and resources. Uses Word Mover's Distance
                 # to obtain relevant resource candidates.
-                similarities = retrieve(context, resources, gensim_model)
+                similarities = retrieve(context, resources, word2vec)
 
                 # Predict: Takes context and predicts the category of the resource.
                 # Take the maximum length as max and pad the context to maximum
                 # length if it is too short.
+                if args.use_gensim:
+                    constant_values = len(data_utils.embeddings.index2word)
+                else:
+                    constant_values = len(data_utils.w2i)
+
                 last_utterance = embedded_utterances[-2]
                 padded_utterance = last_utterance[-args.max_length:]
                 padded_utterance = np.pad(padded_utterance,
                     ((0, args.max_length - len(padded_utterance)), (0, 0)),
-                    "constant", constant_values=(len(w2i)))
+                    "constant", constant_values=(constant_values))
                 predicted = prediction.predict(np.expand_dims(padded_utterance, 0))
 
                 # Rerank: Takes ranked resource candidates and class prediction and
@@ -78,25 +79,27 @@ def run(data, gensim_model, embeddings, w2i):
                 ranked_resources, ranked_classes = rerank(resources, class_indices,
                                                           similarities, predicted)
 
-                # Rewrite: Takes best resource candidate and its template and
-                # generates response.
-                best_response, best_template = rewrite.rerank(templates, ranked_resources, ranked_classes)
-
-                # Response here is still embedding!
-                response = rewrite.rewrite(best_response, best_template)
-                # Rewrite from embedding to words:
-                print("Final response: \n", response)
-        #     return
-        # return
+                # # Rewrite: Takes best resource candidate and its template and
+                # # generates response.
+                # best_response, best_template = rewrite.rerank(templates, ranked_resources, ranked_classes)
+                #
+                # # Response here is still embedding!
+                # response = rewrite.rewrite(best_response, best_template)
+                # # Rewrite from embedding to words:
+                # print("Final response: \n", response)
 
 
 def main(args):
-    gensim_model = KeyedVectors.load(args.word2vec, mmap='r')
+    word2vec = KeyedVectors.load(args.word2vec, mmap='r')
+    data = data_utils.load_data(args.file)
 
-    data = load_data(args.file)
-    embeddings = load_pickle(args.embeddings)
-    w2i = load_pickle(args.w2i)
-    run(data, gensim_model, embeddings, w2i)
+    if args.use_gensim:
+        data_utils.load_gensim(args.word2vec)
+    else:
+        data_utils.load_embeddings(args.embeddings)
+        data_utils.load_w2i(args.w2i)
+
+    run(data, word2vec)
 
 
 if __name__ == "__main__":
@@ -108,7 +111,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_length", default=110, help="max context length for prediction")
     parser.add_argument("--prediction_model_folder", help="path to the folder that contains"
                                                           " the prediction model", default="../models/prediction")
-    parser.add_argument("--gensim", help="indicate whether gensim vectors should be used", type=boolean, default=False)
+    parser.add_argument("--use_gensim", help="indicate whether gensim vectors should be used", type=bool, default=False)
     args = parser.parse_args()
 
     main(args)
