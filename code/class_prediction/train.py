@@ -17,9 +17,9 @@ def train_cnn(args):
     data_folder = args.data_folder
     # TODO: obtain from args
     max_length = 110
-    x_train, y_train = dataset.load_data_and_labels(data_folder + "/train_data.json", data_folder, max_length)
-    x_test, y_test = dataset.load_data_and_labels(data_folder + "/test_data.json", data_folder, max_length)
-    x_dev, y_dev = dataset.load_data_and_labels(data_folder + "/dev_data.json", data_folder, max_length)
+    x_train, y_train = dataset.load_data_and_labels(data_folder + "/train_data.json", data_folder, max_length, args.use_gensim, args.embeddings, args.w2i)
+    x_test, y_test = dataset.load_data_and_labels(data_folder + "/test_data.json", data_folder, max_length, args.use_gensim, args.embeddings, args.w2i)
+    x_dev, y_dev = dataset.load_data_and_labels(data_folder + "/dev_data.json", data_folder, max_length, args.use_gensim, args.embeddings, args.w2i)
 
     parameter_file = args.parameters
     params = json.loads(open(parameter_file).read())
@@ -152,5 +152,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("data_folder", help="path to folder of the dataset.")
     parser.add_argument("parameters", help="file that contains the training parameters.")
+    parser.add_argument("embeddings", help="file where the embeddings are saved")
+    parser.add_argument("--use_gensim", help="whether gensim embeddings are used", type=bool, default=False)
+    parser.add_argument("--w2i", help="path to w2i file", default="../../data/w2i.pkl")
     args = parser.parse_args()
     train_cnn(args)
