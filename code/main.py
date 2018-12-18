@@ -53,37 +53,39 @@ def run(data, gensim_model, embeddings, w2i):
         for i in range(3, len(chat)-1):
             last_utterances = chat[i-3:i]
             response = chat[i+1]
-            embedded_utterances = [embed_sentence(utterance, embeddings, w2i) for utterance in
-                                   last_utterances]
-            context, embedded_context = get_context(last_utterances, embeddings, w2i)
+            
+            if len(response) > 0:
+                embedded_utterances = [embed_sentence(utterance, embeddings, w2i) for utterance in
+                                       last_utterances]
+                context, embedded_context = get_context(last_utterances, embeddings, w2i)
 
-            # Retrieve: Takes context and resources. Uses Word Mover's Distance
-            # to obtain relevant resource candidates.
-            similarities = retrieve(context, resources, gensim_model)
+                # Retrieve: Takes context and resources. Uses Word Mover's Distance
+                # to obtain relevant resource candidates.
+                similarities = retrieve(context, resources, gensim_model)
 
-            # Predict: Takes context and predicts the category of the resource.
-            # Take the maximum length as max and pad the context to maximum
-            # length if it is too short.
-            last_utterance = embedded_utterances[-2]
-            padded_utterance = last_utterance[-args.max_length:]
-            padded_utterance = np.pad(padded_utterance,
-                ((0, args.max_length - len(padded_utterance)), (0, 0)),
-                "constant", constant_values=(len(w2i)))
-            predicted = prediction.predict(np.expand_dims(padded_utterance, 0))
+                # Predict: Takes context and predicts the category of the resource.
+                # Take the maximum length as max and pad the context to maximum
+                # length if it is too short.
+                last_utterance = embedded_utterances[-2]
+                padded_utterance = last_utterance[-args.max_length:]
+                padded_utterance = np.pad(padded_utterance,
+                    ((0, args.max_length - len(padded_utterance)), (0, 0)),
+                    "constant", constant_values=(len(w2i)))
+                predicted = prediction.predict(np.expand_dims(padded_utterance, 0))
 
-            # Rerank: Takes ranked resource candidates and class prediction and
-            # reranks them.
-            ranked_resources, ranked_classes = rerank(resources, class_indices,
-                                                      similarities, predicted)
+                # Rerank: Takes ranked resource candidates and class prediction and
+                # reranks them.
+                ranked_resources, ranked_classes = rerank(resources, class_indices,
+                                                          similarities, predicted)
 
-            # Rewrite: Takes best resource candidate and its template and
-            # generates response.
-            best_response, best_template = rewrite.rerank(templates, ranked_resources, ranked_classes)
+                # Rewrite: Takes best resource candidate and its template and
+                # generates response.
+                best_response, best_template = rewrite.rerank(templates, ranked_resources, ranked_classes)
 
-            # Response here is still embedding!
-            response = rewrite.rewrite(best_response, best_template)
-            # Rewrite from embedding to words:
-            print("Final response: \n", response)
+                # Response here is still embedding!
+                response = rewrite.rewrite(best_response, best_template)
+                # Rewrite from embedding to words:
+                print("Final response: \n", response)
         #     return
         # return
 
@@ -106,6 +108,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_length", default=110, help="max context length for prediction")
     parser.add_argument("--prediction_model_folder", help="path to the folder that contains"
                                                           " the prediction model", default="../models/prediction")
+    parser.add_argument("--gensim", help="indicate whether gensim vectors should be used", type=boolean, default=False)
     args = parser.parse_args()
 
     main(args)
