@@ -149,6 +149,10 @@ def train(args):
             x1 = all_res.reshape(size_inp[0], size_inp[1]*size_inp[2])
             x2 = all_temps.reshape(size_inp[0], size_inp[1]*size_inp[2])
             actual_scores = torch.Tensor(actual_scores).unsqueeze(1)
+
+            if i % 100 == 0:
+                print("Iteration", str(i))
+
             if args.use_gpu:
                 x1.cuda()
                 x2.cuda()
