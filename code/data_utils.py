@@ -42,6 +42,9 @@ def load_embeddings(file_path):
     """
 
     global embeddings
+    global use_gensim
+
+    use_gensim = False
 
     with open(file_path, "rb") as f:
         embeddings = pickle.load(f)
