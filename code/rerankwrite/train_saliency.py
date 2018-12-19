@@ -13,6 +13,9 @@ import argparse
 import numpy as np
 from tqdm import tqdm
 
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = "cpu"
+
 def convert_to_words(complete_sent_emb, w2emb):
     output_sentence = []
     for word in complete_sent_emb:
@@ -41,8 +44,7 @@ def train(args):
     print("Now load the model...")
     emb_size = len(embeddings[0])
     model = SaliencyPrediction(emb_size*args.max_length)
-    if args.use_gpu:
-        model.cuda()
+    model.to(device)
     #loss_func = nn.NLLLoss()
     loss_func = nn.BCELoss()
     #optimizer = optim.Adam(model.parameters())
@@ -86,7 +88,7 @@ def train(args):
 
     print("Now learn.....")
     total_resources = len(embedded_resources)
-    for epoch in range(10):
+    for epoch in range(5):
         print("Epoch: " + str(epoch))
         avg_loss = 0
         for i, resource in tqdm(enumerate(embedded_resources)):
@@ -113,10 +115,9 @@ def train(args):
             x1 = all_res.reshape(size_inp[0], size_inp[1]*size_inp[2])
             x2 = all_temps.reshape(size_inp[0], size_inp[1]*size_inp[2])
             actual_scores = torch.Tensor(actual_scores).unsqueeze(1)
-            if args.use_gpu:
-                x1.cuda()
-                x2.cuda()
-                actual_scores.cuda()
+            x1.to(device)
+            x2.to(device)
+            actual_scores.to(device)
             scores = model.forward(x1, x2)
             loss = loss_func(scores, actual_scores)
             avg_loss += loss.item()
@@ -124,6 +125,7 @@ def train(args):
             optimizer.step()
         #print("Step: " + str(i) + "/" + str(total_resources) + ", the loss is: " + str(loss.item()))
         print("For this epoch, we found avg_loss: " + str(avg_loss/total_resources))
+        torch.save(model, "../../models/rewrite/saliency.pt")
 
 
         total_loss = 0
@@ -149,15 +151,17 @@ def train(args):
             x1 = all_res.reshape(size_inp[0], size_inp[1]*size_inp[2])
             x2 = all_temps.reshape(size_inp[0], size_inp[1]*size_inp[2])
             actual_scores = torch.Tensor(actual_scores).unsqueeze(1)
-            if args.use_gpu:
-                x1.cuda()
-                x2.cuda()
-                actual_scores.cuda()
+
+            if i % 100 == 0:
+                print("Iteration", str(i))
+
+            x1.to(device)
+            x2.to(device)
+            actual_scores.to(device)
             scores = model.forward(x1, x2)
             loss = loss_func(scores, actual_scores)
             total_loss += loss.item()
         print("Average loss is: " + str(total_loss/amount_res))
-    torch.save(model, "../../models/rewrite/saliency.pt")
 
     return
 
@@ -167,12 +171,11 @@ def train(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--folder", help="path to file of the dataset.", default="../../data")
-    parser.add_argument("--embeddings", help="path to file of the saved embeddings", default="../../embeddings/glove_50d.pkl")
+    parser.add_argument("--embeddings", help="path to file of the saved embeddings", default="../../embeddings/glove_100d.pkl")
     parser.add_argument("--word2vec", help="path to file of the word2vec embeddings.", default="../../embeddings/w2v_vectors.kv")
     parser.add_argument("--w2i", help="path to file of the saved w2i", default="../../embeddings/w2i.pkl")
     parser.add_argument("--w2emb", help="path to the file of the saved w2emb", default="../../embeddings/w2emb.pkl")
     parser.add_argument("--max_length", help="max length of sentences", default=110)
-    parser.add_argument("--use_gpu", help="whether to use gpu or not", type=bool, default=False)
 
     args = parser.parse_args()
     train(args)

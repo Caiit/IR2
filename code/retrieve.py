@@ -15,5 +15,5 @@ def retrieve(context, resources, gensim_model):
 
     for resource in resources:
         distance = gensim_model.wmdistance(resource, context)
-        similarities.append(-distance)
+        similarities.append(distance)
     return similarities

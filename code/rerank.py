@@ -11,7 +11,7 @@ def rerank(resources, class_indices, similarities, class_prediction):
 
     for i in range(len(similarities)):
         # similarity of resource*class prediction probability of resource class
-        score = similarities[i]*class_prediction[0][class_indices[i]]
+        score = similarities[i]* (1 / class_prediction[0][class_indices[i]])
         scores.append(score)
 
     sorted_indices = np.argsort(scores)[::-1]
