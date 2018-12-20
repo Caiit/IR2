@@ -52,8 +52,8 @@ def make_templates(args, templates_emb, w2emb, w2i):
 
 def train(args):
     print("Load data...")
-    data_train = load_data(args.folder + "/train_data.json")[:5]
-    data_test = load_data(args.folder + "/dev_data.json")[:5]
+    data_train = load_data(args.folder + "/train_data.json")
+    data_test = load_data(args.folder + "/dev_data.json")
     embeddings = load_pickle(args.embeddings)
     w2i = load_pickle(args.w2i)
     w2emb = load_pickle(args.w2emb)
