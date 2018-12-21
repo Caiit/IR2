@@ -6,8 +6,9 @@ class SaliencyPrediction(nn.Module):
         super(SaliencyPrediction, self).__init__()
         # Maybe extend this further?
         self.bilinear = nn.Bilinear(embedding_size, embedding_size, 1).to(device)
+        self.bn = nn.BatchNorm1d(1)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, resource_embed, template_embed):
-        out = self.bilinear(resource_embed, template_embed)
+        out = self.bn(self.bilinear(resource_embed, template_embed))
         return self.sigmoid(out)
