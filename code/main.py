@@ -6,9 +6,11 @@ import time
 
 from rerank import rerank
 from retrieve import retrieve
-# from rewrite import Rewrite
+from rewrite import Rewrite
 from resource_prediction import ResourcePrediction
+from data_utils import get_w2emb
 import data_utils
+import torch
 
 
 def run(data, word2vec):
@@ -16,8 +18,20 @@ def run(data, word2vec):
     Retrieve, rerank, rewrite.
     """
     prediction = ResourcePrediction(args.prediction_model_folder)
-    # templates  = get_templates("../data/templates.pkl")
-    # rewrite    = Rewrite(FOLDER, embeddings, w2i)
+    templates  = data_utils.get_templates("../data/templates.pkl")
+    w2emb = get_w2emb(args.w2emb)
+    emb_size = len(data_utils.embeddings[0])
+    SOS_token = torch.Tensor([i for i in range(emb_size)]).unsqueeze(0).to(args.use_gpu)
+    EOS_token = torch.Tensor([i+1 for i in range(emb_size)]).unsqueeze(0).to(args.use_gpu)
+    w2emb["SOS_token"] = SOS_token.cpu()
+    w2emb["EOS_token"] = EOS_token.cpu()
+    cut_templates = [[temp[-args.max_length:] for temp in part_templ] for part_templ in templates]
+    flattened_templates_emb_padded = [[np.pad(temp2, ((0, args.max_length - len(temp2)), (0, 0)),
+                                            "constant", constant_values=(len(data_utils.w2i))) for temp2 in temp1]
+                                            for temp1 in cut_templates]
+    templates_padd = [torch.Tensor(class_tm) for class_tm in flattened_templates_emb_padded]
+    rewrite = Rewrite(args.model_folder, data_utils.embeddings, data_utils.w2i, SOS_token, EOS_token, templates_padd,
+                        w2emb, args.use_gpu)
 
     for example in data:
         resources = []
@@ -76,8 +90,12 @@ def run(data, word2vec):
 
                 # Rerank: Takes ranked resource candidates and class prediction and
                 # reranks them.
-                ranked_resources, ranked_classes = rerank(resources, class_indices,
+                ranked_resources, ranked_classes = rerank(embedded_resources, class_indices,
                                                           similarities, predicted)
+
+                best_resource, best_template = rewrite.rerank(ranked_resources[0], ranked_class[0])
+                response = rewrite.rewrite(best_resource, best_template)
+
 
                 # # Rewrite: Takes best resource candidate and its template and
                 # # generates response.
@@ -112,6 +130,9 @@ if __name__ == "__main__":
     parser.add_argument("--prediction_model_folder", help="path to the folder that contains"
                                                           " the prediction model", default="../models/prediction")
     parser.add_argument("--use_gensim", help="indicate whether gensim vectors should be used", type=bool, default=False)
+    parser.add_argument("--use_gpu", help="what to use: gpu/cpu", default="cpu")
+    parser.add_argument("--model_folder", help="where the rewrite models are", default="../models/rewrite/")
+    parser.add_argument("--w2emb", help="folder where w2emb is", default="../embeddings/w2emb.pkl")
     args = parser.parse_args()
 
     main(args)
