@@ -145,35 +145,37 @@ def train(args):
         print("For this epoch, we found avg_loss: " + str(avg_loss/total_resources))
         torch.save(model, "../../models/rewrite/saliency_" + str(epoch) + ".pt")
 
+        model.eval()
 
-        total_loss = 0
-        amount_res = len(resources)
-        for i, resource in tqdm(enumerate(embedded_resources_test)):
-            sent = " ".join(resources_test[i])
-            if sent == "" or sent == "eod":
-                continue;
-            padd_resource = resource[-args.max_length:]
-            padd_resource = np.pad(padd_resource, ((0, args.max_length -
-                                   len(padd_resource)), (0, 0)), "constant",
-                                   constant_values=(len(w2i)))
-            actual_scores = []
-            all_res = torch.Tensor(padd_resource).unsqueeze(0).repeat(20, 1, 1)
-            size_inp = all_res.size()
-            for j, template in enumerate(templates_emb):
-                try:
-                    actual_score = rouge.get_scores(templates[j], " ".join(resources[i]))[0]["rouge-1"]["f"]
-                except:
-                    actual_score = 0
-                actual_scores.append(actual_score)
-            x1 = all_res.reshape(size_inp[0], size_inp[1]*size_inp[2]).to(device)
-            x2 = all_temps.reshape(size_inp[0], size_inp[1]*size_inp[2]).to(device)
-            actual_scores = torch.Tensor(actual_scores).unsqueeze(1).to(device)
+        with torch.no_grad():
+            total_loss = 0
+            amount_res = len(resources)
+            for i, resource in tqdm(enumerate(embedded_resources_test)):
+                sent = " ".join(resources_test[i])
+                if sent == "" or sent == "eod":
+                    continue;
+                padd_resource = resource[-args.max_length:]
+                padd_resource = np.pad(padd_resource, ((0, args.max_length -
+                                       len(padd_resource)), (0, 0)), "constant",
+                                       constant_values=(len(w2i)))
+                actual_scores = []
+                all_res = torch.Tensor(padd_resource).unsqueeze(0).repeat(20, 1, 1)
+                size_inp = all_res.size()
+                for j, template in enumerate(templates_emb):
+                    try:
+                        actual_score = rouge.get_scores(templates[j], " ".join(resources[i]))[0]["rouge-1"]["f"]
+                    except:
+                        actual_score = 0
+                    actual_scores.append(actual_score)
+                x1 = all_res.reshape(size_inp[0], size_inp[1]*size_inp[2]).to(device)
+                x2 = all_temps.reshape(size_inp[0], size_inp[1]*size_inp[2]).to(device)
+                actual_scores = torch.Tensor(actual_scores).unsqueeze(1).to(device)
 
-            scores = model(x1, x2)
-            loss = loss_func(scores, actual_scores)
-            total_loss += loss.item()
-        print("Average loss is: " + str(total_loss/amount_res))
-
+                scores = model(x1, x2)
+                loss = loss_func(scores, actual_scores)
+                total_loss += loss.item()
+            print("Average loss is: " + str(total_loss/amount_res))
+        model.train()
 
 
 if __name__ == "__main__":
