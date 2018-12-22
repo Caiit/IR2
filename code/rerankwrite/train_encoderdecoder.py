@@ -108,7 +108,7 @@ def train(args):
     emb_size = len(embeddings[0])
     hidden_size = 128
     model = CreateResponse(emb_size, 128, emb_size, 0.3, args.max_length, device).to(args.use_gpu)
-    model_sal = load_saliency_model().to(args.use_gpu)
+    model_sal = load_saliency_model(device).to(args.use_gpu)
     loss_func = nn.MSELoss()
     #loss_func = nn.NLLLoss()
     #loss_func = nn.BCELoss()
@@ -132,7 +132,7 @@ def train(args):
     w2emb["EOS_token"] = EOS_token.cpu()
 
     model.train()
-    for epoch in range(5):
+    for epoch in range(10):
         print("Epoch: " + str(epoch))
         np.random.shuffle(all_training_data)
         print("Now do the training...")
@@ -184,7 +184,7 @@ def train(args):
             encoder_optimizer.step()
             decoder_optimizer.step()
         print("Total_loss: " + str(total_loss.item()))
-        torch.save(model, args.model_save)
+        torch.save(model, "../../models/rewrite/model_encoder_" + str(epoch) + ".pt")
 
     model.eval()
     print("Now do the testing.. ")
@@ -247,7 +247,7 @@ if __name__ == "__main__":
     parser.add_argument("--w2emb", help="path to the file of the saved w2emb", default="../../embeddings/w2emb.pkl")
     parser.add_argument("--max_length", help="max length of sentences", default=110)
     parser.add_argument("--use_gpu", help="whether to use gpu or not", default="cuda:0") # or use "cpu"
-    parser.add_argument("--model_save", help="where to store the model", default="../../models/rewrite/model_encoder.pt")
+    # parser.add_argument("--model_save", help="where to store the model", default="../../models/rewrite/model_encoder.pt")
 
     args = parser.parse_args()
     train(args)
