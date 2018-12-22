@@ -36,7 +36,7 @@ def load_saliency_model():
 
 def get_data(data, embeddings, w2i, gensim_model, args):
     all_examples = []
-    for example in tqdm(data[:50]):
+    for example in tqdm(data):
         resources = []
         embedded_resources = []
         class_indices = []
