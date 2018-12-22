@@ -24,7 +24,7 @@ def convert_to_word(word, w2emb):
     return real_w
 
 def load_saliency_model():
-    model = torch.load("../../models/rewrite/saliency.pt")
+    model = torch.load("../../models/rewrite/saliency_0.pt")
     model.eval()
     return model
 
