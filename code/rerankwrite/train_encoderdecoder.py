@@ -108,7 +108,7 @@ def train(args):
     emb_size = len(embeddings[0])
     hidden_size = 128
     model = CreateResponse(emb_size, 128, emb_size, 0.3, args.max_length, device).to(args.use_gpu)
-    model_sal = load_saliency_model(device).to(args.use_gpu)
+    model_sal = load_saliency_model().to(args.use_gpu)
     loss_func = nn.MSELoss()
     #loss_func = nn.NLLLoss()
     #loss_func = nn.BCELoss()
