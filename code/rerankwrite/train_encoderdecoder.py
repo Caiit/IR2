@@ -43,7 +43,7 @@ def get_data(filename, data, embeddings, w2i, gensim_model, args):
     else:
         all_examples = []
 
-        for example in tqdm(data[:3]):
+        for example in tqdm(data):
             resources = []
             embedded_resources = []
             class_indices = []
@@ -119,35 +119,40 @@ def train(args):
     gensim_model = KeyedVectors.load(args.word2vec, mmap='r')
 
     print("Do the templates...")
-    flattened_templates_emb = [y for x in templates_emb for y in x]
-    cut_templates = [temp[-args.max_length:] for temp in flattened_templates_emb]
-    flattened_templates_emb_padded = [np.pad(temp1, ((0, args.max_length - len(temp1)), (0, 0)),
-                                            "constant", constant_values=(len(w2i))) for temp1 in cut_templates]
-    templates_padd = torch.Tensor(flattened_templates_emb_padded)
+    templates_emb = [y for x in templates_emb for y in x]
+    cut_templates = [temp[-args.max_length:] for temp in templates_emb]
+    templates_emb = [np.pad(temp1, ((0, args.max_length-len(temp1)), (0, 0)),
+                     "constant", constant_values=(len(w2i))) for temp1 in
+                     cut_templates]
+    templates_emb = torch.Tensor(templates_emb)
 
     print("Now load the model...")
     emb_size = len(embeddings[0])
     hidden_size = 128
-    model = CreateResponse(emb_size, 128, emb_size, 0.3, args.max_length, device).to(args.use_gpu)
+    model = CreateResponse(emb_size, 128, emb_size, 0.3, args.max_length,
+                           device).to(args.use_gpu)
     model_sal = load_saliency_model().to(args.use_gpu)
     loss_func = nn.MSELoss()
-    #loss_func = nn.NLLLoss()
-    #loss_func = nn.BCELoss()
-    #optimizer = optim.Adam(model.parameters())
-    encoder_optimizer = optim.SGD(model.encoder.parameters(), lr = 0.001, momentum=0.9)
-    decoder_optimizer = optim.SGD(model.decoder.parameters(), lr=0.001, momentum=0.9)
+    encoder_optimizer = optim.SGD(model.encoder.parameters(), lr=0.001,
+                                  momentum=0.9)
+    decoder_optimizer = optim.SGD(model.decoder.parameters(), lr=0.001,
+                                  momentum=0.9)
 
 
     print("Go through training data...")
     # In the form of (start sent, resource, target)
-    all_training_data = get_data(args.saved_train, data_train, embeddings, w2i, gensim_model, args)
-    all_test_data = get_data(args.saved_test, data_test, embeddings, w2i, gensim_model, args)
+    all_training_data = get_data(args.saved_train, data_train, embeddings, w2i,
+                                 gensim_model, args)
+    all_test_data = get_data(args.saved_test, data_test, embeddings, w2i,
+                             gensim_model, args)
     print(len(all_training_data))
     print(len(all_test_data))
 
 
-    SOS_token = torch.Tensor([i for i in range(emb_size)]).unsqueeze(0).to(args.use_gpu)
-    EOS_token = torch.Tensor([i+1 for i in range(emb_size)]).unsqueeze(0).to(args.use_gpu)
+    SOS_token = torch.Tensor([i for i in
+                              range(emb_size)]).unsqueeze(0).to(args.use_gpu)
+    EOS_token = torch.Tensor([i+1 for i in
+                              range(emb_size)]).unsqueeze(0).to(args.use_gpu)
     w2emb["SOS_token"] = SOS_token.cpu()
     w2emb["EOS_token"] = EOS_token.cpu()
 
@@ -162,12 +167,15 @@ def train(args):
             target = torch.Tensor(ex[1]).to(args.use_gpu)
 
             padd_resource = resource[-args.max_length:]
-            padd_resource = np.pad(padd_resource, ((0, args.max_length - len(padd_resource)), (0, 0)), "constant",
-                                constant_values=(len(w2i)))
+            padd_resource = np.pad(padd_resource, ((0, args.max_length -
+                                   len(padd_resource)), (0, 0)), "constant",
+                                   constant_values=(len(w2i)))
 
-            all_temps = torch.Tensor(flattened_templates_emb_padded).to(args.use_gpu)
+            all_temps = torch.Tensor(templates_emb).to(args.use_gpu)
             all_res = torch.Tensor(padd_resource).unsqueeze(0).repeat(20, 1, 1).to(args.use_gpu)
             size_inp = all_res.size()
+            print("resources", size_inp)
+            print("templates", all_temps.size())
             x1 = all_res.reshape(size_inp[0], size_inp[1]*size_inp[2])
             x2 = all_temps.reshape(size_inp[0], size_inp[1]*size_inp[2])
             scores = model_sal.forward(x1, x2)
@@ -183,7 +191,9 @@ def train(args):
             encoder_outputs = torch.zeros(args.max_length*2 + 4, model.encoder.hidden_size).to(args.use_gpu)
             loss = 0
 
+
             for ei in range(input_length):
+                print(final_input[ei].shape)
                 encoder_output, encoder_hidden = model.encoder(final_input[ei].unsqueeze(0), encoder_hidden)
                 encoder_outputs[ei] = encoder_output[0, 0]
 
@@ -217,7 +227,7 @@ def train(args):
             padd_resource = np.pad(padd_resource, ((0, args.max_length - len(padd_resource)), (0, 0)), "constant",
                                 constant_values=(len(w2i)))
 
-            all_temps = torch.Tensor(flattened_templates_emb_padded).to(args.use_gpu)
+            all_temps = torch.Tensor(templates_emb).to(args.use_gpu)
             all_res = torch.Tensor(padd_resource).unsqueeze(0).repeat(20, 1, 1).to(args.use_gpu)
             size_inp = all_res.size()
             x1 = all_res.reshape(size_inp[0], size_inp[1]*size_inp[2])
