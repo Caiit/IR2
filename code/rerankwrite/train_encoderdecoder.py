@@ -15,76 +15,97 @@ import matplotlib.pyplot as plt
 import argparse
 import numpy as np
 from tqdm import tqdm
+import pickle
+import os
+
 
 def convert_to_word(word, w2emb):
     emb_dists = [torch.norm(word - torch.Tensor(embs)).item() for embs in list(w2emb.values())]
     index = np.argmin(emb_dists)
     real_w = list(w2emb.keys())[index]
-
     return real_w
+
 
 def load_saliency_model():
     model = torch.load("../../models/rewrite/saliency_0.pt")
     model.eval()
     return model
 
-# def loss_func(input, target):
-#     b_size = input.shape[0]
-#     total_sum = sum([torch.exp(torch.dot(input[i], target[i])) for i in range(b_size - 1)])
-#     loss = sum([-torch.dot(input[i], target[i]) + torch.log(total_sum) for i in range(b_size - 1)])/input.shape[1]
-#     return loss
 
-def get_data(data, embeddings, w2i, gensim_model, args):
-    all_examples = []
-    for example in tqdm(data):
-        resources = []
-        embedded_resources = []
-        class_indices = []
-        get_resources(example["documents"]["comments"], resources,
-                      embedded_resources, embeddings, w2i)
-        num_comments = len(resources)
-        get_resources(example["documents"]["fact_table"], resources,
-                      embedded_resources, embeddings, w2i)
-        num_facts = len(resources) - num_comments
-        get_resources(example["documents"]["plot"], resources,
-                      embedded_resources, embeddings, w2i)
-        num_plots = len(resources) - num_comments - num_facts
-        get_resources(example["documents"]["review"], resources,
-                      embedded_resources, embeddings, w2i)
-        num_reviews = len(resources) - num_comments - num_facts - num_plots
+def get_data(filename, data, embeddings, w2i, gensim_model, args):
+    """
+    Retrieves all data. Load it from a Pickle file if it exists, and create it
+    otherwise.
+    """
 
-        # Keep track of where each resource originated from.
-        class_indices += [2]*num_comments
-        class_indices += [3]*num_facts
-        class_indices += [0]*num_plots
-        class_indices += [1]*num_reviews
+    if os.path.exists(filename):
+        all_examples = load_pickle(filename)
+    else:
+        all_examples = []
 
-        chat = example["chat"]
+        for example in tqdm(data[:3]):
+            resources = []
+            embedded_resources = []
+            class_indices = []
+            get_resources(example["documents"]["comments"], resources,
+                          embedded_resources, embeddings, w2i)
+            num_comments = len(resources)
+            get_resources(example["documents"]["fact_table"], resources,
+                          embedded_resources, embeddings, w2i)
+            num_facts = len(resources) - num_comments
+            get_resources(example["documents"]["plot"], resources,
+                          embedded_resources, embeddings, w2i)
+            num_plots = len(resources) - num_comments - num_facts
+            get_resources(example["documents"]["review"], resources,
+                          embedded_resources, embeddings, w2i)
+            num_reviews = len(resources) - num_comments - num_facts - num_plots
 
+            # Keep track of where each resource originated from.
+            class_indices += [2]*num_comments
+            class_indices += [3]*num_facts
+            class_indices += [0]*num_plots
+            class_indices += [1]*num_reviews
 
-        # Loop over each of the last three utterances in the chat (the context).
-        for i in range(3, len(chat)-1):
-            last_utterances = chat[i-3:i]
-            response = chat[i+1]
+            chat = example["chat"]
 
-            if len(response) > 0:
-                exp = []
-                embedded_utterances = [embed_sentence(utterance, embeddings, w2i) for utterance in
-                                       last_utterances]
-                context, embedded_context = get_context(last_utterances, embeddings, w2i)
+            # Loop over each of the last three utterances in the chat (the context).
+            for i in range(3, len(chat)-1):
+                last_utterances = chat[i-3:i]
+                response = chat[i+1]
 
-                # Retrieve: Takes context and resources. Uses Word Mover's Distance
-                # to obtain relevant resource candidates.
-                similarities = retrieve(context, resources, gensim_model)
+                if len(response) > 0:
+                    exp = []
+                    embedded_utterances = [embed_sentence(utterance, embeddings,
+                                           w2i) for utterance in
+                                           last_utterances]
+                    context, embedded_context = get_context(last_utterances,
+                                                            embeddings, w2i)
 
-                padd_resource = embedded_resources[np.argmax(similarities)][-args.max_length:]
-                padd_resource = np.pad(padd_resource, ((0, args.max_length - len(padd_resource)), (0, 0)), "constant",
-                                    constant_values=(len(w2i)))
+                    # Retrieve: Takes context and resources. Uses Word Mover's Distance
+                    # to obtain relevant resource candidates.
+                    similarities = retrieve(context, resources, gensim_model)
 
-                exp.append(padd_resource)
-                exp.append(embed_sentence(chat[i+1], embeddings, w2i))
-                all_examples.append(tuple(exp))
+                    padd_resource = embedded_resources[np.argmax(similarities)][-args.max_length:]
+                    padd_resource = np.pad(padd_resource, ((0, args.max_length -
+                                           len(padd_resource)), (0, 0)),
+                                           "constant",
+                                           constant_values=(len(w2i)))
+
+                    exp.append(padd_resource)
+                    exp.append(embed_sentence(chat[i+1], embeddings, w2i))
+                    all_examples.append(tuple(exp))
+        save_data(filename, all_examples)
     return all_examples
+
+
+def save_data(filename, data):
+    """
+    Saves data to Pickle file.
+    """
+
+    with open(filename, "wb") as f:
+        pickle.dump(data, f)
+
 
 def train(args):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -117,11 +138,10 @@ def train(args):
     decoder_optimizer = optim.SGD(model.decoder.parameters(), lr=0.001, momentum=0.9)
 
 
-
     print("Go through training data...")
     # In the form of (start sent, resource, target)
-    all_training_data = get_data(data_train, embeddings, w2i, gensim_model, args)
-    all_test_data = get_data(data_test, embeddings, w2i, gensim_model, args)
+    all_training_data = get_data(args.saved_train, data_train, embeddings, w2i, gensim_model, args)
+    all_test_data = get_data(args.saved_test, data_test, embeddings, w2i, gensim_model, args)
     print(len(all_training_data))
     print(len(all_test_data))
 
@@ -132,7 +152,7 @@ def train(args):
     w2emb["EOS_token"] = EOS_token.cpu()
 
     model.train()
-    for epoch in range(10):
+    for epoch in range(100):
         print("Epoch: " + str(epoch))
         np.random.shuffle(all_training_data)
         print("Now do the training...")
@@ -236,8 +256,6 @@ def train(args):
     return
 
 
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--folder", help="path to file of the dataset.", default="../../data")
@@ -247,7 +265,8 @@ if __name__ == "__main__":
     parser.add_argument("--w2emb", help="path to the file of the saved w2emb", default="../../embeddings/w2emb.pkl")
     parser.add_argument("--max_length", help="max length of sentences", default=110)
     parser.add_argument("--use_gpu", help="whether to use gpu or not", default="cuda:0") # or use "cpu"
-    # parser.add_argument("--model_save", help="where to store the model", default="../../models/rewrite/model_encoder.pt")
+    parser.add_argument("--saved_train", help="where to save the training data", default="../../data/rewrite_train.pkl")
+    parser.add_argument("--saved_test", help="where to save the test data", default="../../data/rewrite_test.pkl")
 
     args = parser.parse_args()
     train(args)
