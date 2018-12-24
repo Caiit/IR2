@@ -171,7 +171,7 @@ def get_all(args):
     return all_training_data, all_test_data, templates_emb, w2emb
 
 
-def save_model(model, optimizer, epoch):
+def save_model(model, encoder_optim, decoder_optim, epoch):
     """
     Saves the model so that we can continue training.
     """
@@ -181,7 +181,8 @@ def save_model(model, optimizer, epoch):
     checkpoint = {
         "epoch": epoch,
         "state_dict": model.state_dict(),
-        "optimizer": optimizer.state_dict(),
+        "encoder_optimizer": encoder_optim.state_dict(),
+        "decoder_optimizer": decoder_optim.state_dict()
     }
     torch.save(checkpoint, filename)
 
@@ -220,13 +221,18 @@ def run(args):
     w2emb["EOS_token"] = EOS_token.cpu()
 
     if args.saved_model:
-        rewrite_model = torch.load(args.saved_model)
+        checkpoint = torch.load(args.saved_model)
+        rewrite_model.load_state_dict(checkpoint["state_dict"])
+        encoder_optimizer.load_state_dict(checkpoint["encoder_optimizer"])
+        decoder_optimizer.load_state_dict(checkpoint["decoder_optimizer"])
 
-    train(rewrite_model, saliency_model, training_data, templates)
+    train(rewrite_model, saliency_model, encoder_optimizer, decoder_optimizer,
+          training_data, templates)
     test(rewrite_model, saliency_model, test_data, templates, w2emb)
 
 
-def train(rewrite_model, saliency_model, training_data, templates):
+def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
+          training_data, templates):
     """
     Train model on training data.
     """
@@ -244,6 +250,7 @@ def train(rewrite_model, saliency_model, training_data, templates):
         np.random.shuffle(training_data)
         print("Now do the training...")
         total_loss = 0
+
         for ex in tqdm(training_data):
             resource = ex[0]
             target = torch.Tensor(ex[1]).to(device)
@@ -265,8 +272,8 @@ def train(rewrite_model, saliency_model, training_data, templates):
                                      EOS_token)).unsqueeze(0)
 
             encoder_hidden = rewrite_model.encoder.initHidden()
-            encoder_optimizer.zero_grad()
-            decoder_optimizer.zero_grad()
+            encoder_optim.zero_grad()
+            decoder_optim.zero_grad()
             input_length = final_input.size(0)
             target_length = target.size(0)
 
@@ -296,15 +303,15 @@ def train(rewrite_model, saliency_model, training_data, templates):
             total_loss += loss
             loss.backward()
 
-            encoder_optimizer.step()
-            decoder_optimizer.step()
+            encoder_optim.step()
+            decoder_optim.step()
         print("Total_loss: " + str(total_loss.item()))
 
         if args.saved_model:
             real_epoch = get_epoch(args.saved_model, epoch)
         else:
             real_epoch = epoch
-        save_model(rewrite_model, optimizer, real_epoch)
+        save_model(rewrite_model, encoder_optim, decoder_optim, real_epoch)
 
 
 def test(rewrite_model, saliency_model, test_data, templates, w2emb):
