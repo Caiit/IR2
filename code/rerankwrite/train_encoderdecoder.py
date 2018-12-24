@@ -206,7 +206,6 @@ def run(args):
     rewrite_model = CreateResponse(embedding_size, 128, embedding_size, 0.3,
                                    args.max_length, device).to(device)
     saliency_model = load_saliency_model().to(device)
-    loss_func = nn.MSELoss()
     encoder_optimizer = optim.SGD(rewrite_model.encoder.parameters(), lr=0.001,
                                   momentum=0.9)
     decoder_optimizer = optim.SGD(rewrite_model.decoder.parameters(), lr=0.001,
@@ -241,6 +240,7 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
     global EOS_token
     global num_words
 
+    loss_func = nn.MSELoss()
     all_temps = torch.Tensor(templates).to(device)
 
     rewrite_model.train()
