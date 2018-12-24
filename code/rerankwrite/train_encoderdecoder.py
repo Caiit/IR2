@@ -225,9 +225,12 @@ def run(args):
         encoder_optimizer.load_state_dict(checkpoint["encoder_optimizer"])
         decoder_optimizer.load_state_dict(checkpoint["decoder_optimizer"])
 
-    train(rewrite_model, saliency_model, encoder_optimizer, decoder_optimizer,
-          training_data, templates)
-    test(rewrite_model, saliency_model, test_data, templates, w2emb)
+    if args.evaluate:
+        test(rewrite_model, saliency_model, test_data, templates, w2emb)
+    else:
+        test(rewrite_model, saliency_model, test_data, templates, w2emb)
+        train(rewrite_model, saliency_model, encoder_optimizer,
+              decoder_optimizer, training_data, templates)
 
 
 def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
@@ -392,6 +395,7 @@ if __name__ == "__main__":
     parser.add_argument("--saved_train", help="where to save the training data", default="../../data/rewrite_train.pkl")
     parser.add_argument("--saved_test", help="where to save the test data", default="../../data/rewrite_test.pkl")
     parser.add_argument("--saved_model", help="where the model was saved")#, default="../../models/rewrite/model_encoder_10.pt")
+    parser.add_argument("--evaluate", help="only evaluate, do not train", default=False, type=bool)
 
     args = parser.parse_args()
     run(args)
