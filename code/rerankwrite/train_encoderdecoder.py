@@ -1,6 +1,3 @@
-# torch.save(model.state_dict(), PATH)
-# torch.save(model, PATH)
-
 from encoder_decoder import DecoderRNN, EncoderRNN, CreateResponse
 from saliency_model import SaliencyPrediction
 from data_utils import load_data, load_pickle, get_context, embed_sentence, \
@@ -19,14 +16,29 @@ import pickle
 import os
 
 
+global SOS_token
+global EOS_token
+global device
+global embedding_size
+
+
 def convert_to_word(word, w2emb):
-    emb_dists = [torch.norm(word - torch.Tensor(embs)).item() for embs in list(w2emb.values())]
+    """
+    Converts an embedding into a word.
+    """
+
+    emb_dists = [torch.norm(word - torch.Tensor(embs)).item() for embs in
+                 list(w2emb.values())]
     index = np.argmin(emb_dists)
     real_w = list(w2emb.keys())[index]
     return real_w
 
 
 def load_saliency_model():
+    """
+    Loads the saliency model.
+    """
+
     model = torch.load("../../models/rewrite/saliency_0.pt")
     model.eval()
     return model
@@ -37,6 +49,8 @@ def get_data(filename, data, embeddings, w2i, gensim_model, args):
     Retrieves all data. Load it from a Pickle file if it exists, and create it
     otherwise.
     """
+
+    global num_words
 
     if os.path.exists(filename):
         all_examples = load_pickle(filename)
@@ -89,7 +103,7 @@ def get_data(filename, data, embeddings, w2i, gensim_model, args):
                     padd_resource = np.pad(padd_resource, ((0, args.max_length -
                                            len(padd_resource)), (0, 0)),
                                            "constant",
-                                           constant_values=(len(w2i)))
+                                           constant_values=(num_words))
 
                     exp.append(padd_resource)
                     exp.append(embed_sentence(chat[i+1], embeddings, w2i))
@@ -107,13 +121,33 @@ def save_data(filename, data):
         pickle.dump(data, f)
 
 
-def train(args):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def get_current_epoch(filename, epoch):
+    """
+    Calculates the current epoch so that the model is saved with the correct
+    filename.
+    """
+
+    last_epoch = filename.split("_")[-1]
+    last_epoch = int(last_epoch.split(".")[0])
+    current_epoch = last_epoch + epoch
+    return current_epoch
+
+
+def get_all(args):
+    """
+    Gets the training and test data, and templates.
+    """
+
+    global embedding_size
+    global num_words
+
     print("Load data...")
     data_train = load_data(args.folder + "/train_data.json")
     data_test = load_data(args.folder + "/dev_data.json")
     embeddings = load_pickle(args.embeddings)
+    embedding_size = len(embeddings[0])
     w2i = load_pickle(args.w2i)
+    num_words = len(w2i)
     w2emb = load_pickle(args.w2emb)
     templates_emb  = get_templates("../../data/templates.pkl")
     gensim_model = KeyedVectors.load(args.word2vec, mmap='r')
@@ -122,88 +156,139 @@ def train(args):
     templates_emb = [y for x in templates_emb for y in x]
     cut_templates = [temp[-args.max_length:] for temp in templates_emb]
     templates_emb = [np.pad(temp1, ((0, args.max_length-len(temp1)), (0, 0)),
-                     "constant", constant_values=(len(w2i))) for temp1 in
-                     cut_templates]
+    "constant", constant_values=(num_words)) for temp1 in
+    cut_templates]
     templates_emb = torch.Tensor(templates_emb)
-
-    print("Now load the model...")
-    emb_size = len(embeddings[0])
-    hidden_size = 128
-    model = CreateResponse(emb_size, 128, emb_size, 0.3, args.max_length,
-                           device).to(args.use_gpu)
-    model_sal = load_saliency_model().to(args.use_gpu)
-    loss_func = nn.MSELoss()
-    encoder_optimizer = optim.SGD(model.encoder.parameters(), lr=0.001,
-                                  momentum=0.9)
-    decoder_optimizer = optim.SGD(model.decoder.parameters(), lr=0.001,
-                                  momentum=0.9)
-
 
     print("Go through training data...")
     # In the form of (start sent, resource, target)
     all_training_data = get_data(args.saved_train, data_train, embeddings, w2i,
-                                 gensim_model, args)
+    gensim_model, args)
     all_test_data = get_data(args.saved_test, data_test, embeddings, w2i,
-                             gensim_model, args)
+    gensim_model, args)
     print(len(all_training_data))
     print(len(all_test_data))
+    return all_training_data, all_test_data, templates_emb, w2emb
+
+
+def save_model(model, optimizer, epoch):
+    """
+    Saves the model so that we can continue training.
+    """
+
+    filename = "../../models/rewrite/model_encoder_" + str(epoch) + ".pt"
+
+    checkpoint = {
+        "epoch": epoch,
+        "state_dict": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+    }
+    torch.save(checkpoint, filename)
+
+
+def run(args):
+    """
+    Run model by training and testing it.
+    """
+
+    global SOS_token
+    global EOS_token
+    global device
+    global embedding_size
+    global num_words
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    training_data, test_data, templates, w2emb = get_all(args)
+
+    print("Now load the model...")
+    hidden_size = 128
+    rewrite_model = CreateResponse(embedding_size, 128, embedding_size, 0.3,
+                                   args.max_length, device).to(device)
+    saliency_model = load_saliency_model().to(device)
+    loss_func = nn.MSELoss()
+    encoder_optimizer = optim.SGD(rewrite_model.encoder.parameters(), lr=0.001,
+                                  momentum=0.9)
+    decoder_optimizer = optim.SGD(rewrite_model.decoder.parameters(), lr=0.001,
+                                  momentum=0.9)
 
 
     SOS_token = torch.Tensor([i for i in
-                              range(emb_size)]).unsqueeze(0).to(args.use_gpu)
+                              range(embedding_size)]).unsqueeze(0).to(device)
     EOS_token = torch.Tensor([i+1 for i in
-                              range(emb_size)]).unsqueeze(0).to(args.use_gpu)
+                              range(embedding_size)]).unsqueeze(0).to(device)
     w2emb["SOS_token"] = SOS_token.cpu()
     w2emb["EOS_token"] = EOS_token.cpu()
 
-    model.train()
+    if args.saved_model:
+        rewrite_model = torch.load(args.saved_model)
+
+    train(rewrite_model, saliency_model, training_data, templates)
+    test(rewrite_model, saliency_model, test_data, templates, w2emb)
+
+
+def train(rewrite_model, saliency_model, training_data, templates):
+    """
+    Train model on training data.
+    """
+
+    global SOS_token
+    global EOS_token
+    global num_words
+
+    all_temps = torch.Tensor(templates).to(device)
+
+    rewrite_model.train()
+
     for epoch in range(100):
         print("Epoch: " + str(epoch))
-        np.random.shuffle(all_training_data)
+        np.random.shuffle(training_data)
         print("Now do the training...")
         total_loss = 0
-        for ex in all_training_data:
+        for ex in tqdm(training_data):
             resource = ex[0]
-            target = torch.Tensor(ex[1]).to(args.use_gpu)
+            target = torch.Tensor(ex[1]).to(device)
 
             padd_resource = resource[-args.max_length:]
             padd_resource = np.pad(padd_resource, ((0, args.max_length -
                                    len(padd_resource)), (0, 0)), "constant",
-                                   constant_values=(len(w2i)))
+                                   constant_values=(num_words))
 
-            all_temps = torch.Tensor(templates_emb).to(args.use_gpu)
-            all_res = torch.Tensor(padd_resource).unsqueeze(0).repeat(20, 1, 1).to(args.use_gpu)
+            all_res = torch.Tensor(padd_resource).unsqueeze(0).repeat(20, 1, 1).to(device)
             size_inp = all_res.size()
-            print("resources", size_inp)
-            print("templates", all_temps.size())
             x1 = all_res.reshape(size_inp[0], size_inp[1]*size_inp[2])
             x2 = all_temps.reshape(size_inp[0], size_inp[1]*size_inp[2])
-            scores = model_sal.forward(x1, x2)
+            scores = saliency_model(x1, x2)
             best_template = all_temps[torch.argmax(scores)].squeeze(0)
 
-            final_input = torch.cat((SOS_token, all_res[0], EOS_token, SOS_token, best_template, EOS_token)).unsqueeze(0)
-            encoder_hidden = model.encoder.initHidden()
+            final_input = torch.cat((SOS_token, all_res[0], EOS_token,
+                                     SOS_token, best_template,
+                                     EOS_token)).unsqueeze(0)
+
+            encoder_hidden = rewrite_model.encoder.initHidden()
             encoder_optimizer.zero_grad()
             decoder_optimizer.zero_grad()
             input_length = final_input.size(0)
             target_length = target.size(0)
 
-            encoder_outputs = torch.zeros(args.max_length*2 + 4, model.encoder.hidden_size).to(args.use_gpu)
+            encoder_outputs = \
+                torch.zeros(args.max_length*2 + 4,
+                            rewrite_model.encoder.hidden_size).to(device)
             loss = 0
 
 
             for ei in range(input_length):
-                print(final_input[ei].shape)
-                encoder_output, encoder_hidden = model.encoder(final_input[ei].unsqueeze(0), encoder_hidden)
+                encoder_output, encoder_hidden = \
+                    rewrite_model.encoder(final_input[ei].unsqueeze(0),
+                                          encoder_hidden)
                 encoder_outputs[ei] = encoder_output[0, 0]
 
             decoder_input = SOS_token.unsqueeze(0)
-
             decoder_hidden = encoder_hidden
 
             # Teacher forcing: Feed the target as the next input
             for di in range(target_length):
-                decoder_output, decoder_hidden = model.decoder(decoder_input, decoder_hidden)
+                decoder_output, decoder_hidden = \
+                    rewrite_model.decoder(decoder_input, decoder_hidden)
                 new_tar = target[di].unsqueeze(0)
                 loss += loss_func(decoder_output, new_tar)
                 decoder_input = new_tar.unsqueeze(0)
@@ -214,47 +299,71 @@ def train(args):
             encoder_optimizer.step()
             decoder_optimizer.step()
         print("Total_loss: " + str(total_loss.item()))
-        torch.save(model, "../../models/rewrite/model_encoder_" + str(epoch) + ".pt")
 
-    model.eval()
+        if args.saved_model:
+            real_epoch = get_epoch(args.saved_model, epoch)
+        else:
+            real_epoch = epoch
+        save_model(rewrite_model, optimizer, real_epoch)
+
+
+def test(rewrite_model, saliency_model, test_data, templates, w2emb):
+    """
+    Test model on evaluation data.
+    """
+
+    global SOS_token
+    global EOS_token
+    global num_words
+
+    all_temps = torch.Tensor(templates).to(device)
+
+    rewrite_model.eval()
     print("Now do the testing.. ")
-    for ex in all_test_data:
+    for ex in tqdm(test_data):
         with torch.no_grad():
             resource = ex[0]
-            target = torch.Tensor(ex[1]).to(args.use_gpu)
+            target = torch.Tensor(ex[1]).to(device)
 
             padd_resource = resource[-args.max_length:]
-            padd_resource = np.pad(padd_resource, ((0, args.max_length - len(padd_resource)), (0, 0)), "constant",
-                                constant_values=(len(w2i)))
+            padd_resource = np.pad(padd_resource, ((0, args.max_length -
+                                   len(padd_resource)), (0, 0)), "constant",
+                                   constant_values=(num_words))
 
-            all_temps = torch.Tensor(templates_emb).to(args.use_gpu)
-            all_res = torch.Tensor(padd_resource).unsqueeze(0).repeat(20, 1, 1).to(args.use_gpu)
+            all_res = torch.Tensor(padd_resource).unsqueeze(0).repeat(20, 1,
+                                   1).to(device)
             size_inp = all_res.size()
             x1 = all_res.reshape(size_inp[0], size_inp[1]*size_inp[2])
             x2 = all_temps.reshape(size_inp[0], size_inp[1]*size_inp[2])
-            scores = model_sal.forward(x1, x2)
+            scores = saliency_model(x1, x2)
             best_template = all_temps[torch.argmax(scores)].squeeze(0)
 
-            final_input = torch.cat((SOS_token, all_res[0], EOS_token, SOS_token, best_template, EOS_token)).unsqueeze(0)
+            final_input = torch.cat((SOS_token, all_res[0], EOS_token,
+                                     SOS_token, best_template,
+                                     EOS_token)).unsqueeze(0)
             encoder_hidden = model.encoder.initHidden()
             input_length = final_input.size(0)
             target_length = target.size(0)
 
-            encoder_outputs = torch.zeros(args.max_length*2 + 4, model.encoder.hidden_size)
+            encoder_outputs = torch.zeros(args.max_length*2 + 4,
+                                          rewrite_model.encoder.hidden_size)
             loss = 0
 
             for ei in range(input_length):
-                encoder_output, encoder_hidden = model.encoder(final_input[ei].unsqueeze(0), encoder_hidden)
+                encoder_output, encoder_hidden = \
+                    rewrite_model.encoder(final_input[ei].unsqueeze(0),
+                                          encoder_hidden)
                 encoder_outputs[ei] = encoder_output[0, 0]
 
             decoder_input = SOS_token.unsqueeze(0)
-
             decoder_hidden = encoder_hidden
 
             decoded_words = []
             for di in range(args.max_length):
-                decoder_output, decoder_hidden = model.decoder(decoder_input, decoder_hidden)
+                decoder_output, decoder_hidden = \
+                    rewrite_model.decoder(decoder_input, decoder_hidden)
                 word = convert_to_word(decoder_output.cpu(), w2emb)
+
                 if word == "EOS_token":
                     decoded_words.append("<EOS>")
                     break
@@ -263,7 +372,6 @@ def train(args):
                 decoder_input = decoder_output.unsqueeze(0)
 
             print(decoded_words)
-    return
 
 
 if __name__ == "__main__":
@@ -274,9 +382,9 @@ if __name__ == "__main__":
     parser.add_argument("--w2i", help="path to file of the saved w2i", default="../../embeddings/w2i.pkl")
     parser.add_argument("--w2emb", help="path to the file of the saved w2emb", default="../../embeddings/w2emb.pkl")
     parser.add_argument("--max_length", help="max length of sentences", default=110)
-    parser.add_argument("--use_gpu", help="whether to use gpu or not", default="cuda:0") # or use "cpu"
     parser.add_argument("--saved_train", help="where to save the training data", default="../../data/rewrite_train.pkl")
     parser.add_argument("--saved_test", help="where to save the test data", default="../../data/rewrite_test.pkl")
+    parser.add_argument("--saved_model", help="where the model was saved")#, default="../../models/rewrite/model_encoder_10.pt")
 
     args = parser.parse_args()
-    train(args)
+    run(args)
