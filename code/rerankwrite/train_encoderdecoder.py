@@ -228,9 +228,9 @@ def run(args):
     if args.evaluate:
         test(rewrite_model, saliency_model, test_data, templates, w2emb)
     else:
-        test(rewrite_model, saliency_model, test_data, templates, w2emb)
         train(rewrite_model, saliency_model, encoder_optimizer,
-              decoder_optimizer, training_data, templates)
+        decoder_optimizer, training_data, templates)
+        test(rewrite_model, saliency_model, test_data, templates, w2emb)
 
 
 def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
@@ -351,7 +351,7 @@ def test(rewrite_model, saliency_model, test_data, templates, w2emb):
             final_input = torch.cat((SOS_token, all_res[0], EOS_token,
                                      SOS_token, best_template,
                                      EOS_token)).unsqueeze(0)
-            encoder_hidden = model.encoder.initHidden()
+            encoder_hidden = rewrite_model.encoder.initHidden()
             input_length = final_input.size(0)
             target_length = target.size(0)
 
