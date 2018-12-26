@@ -311,7 +311,7 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
         print("Total_loss: " + str(total_loss.item()))
 
         if args.saved_model:
-            real_epoch = get_epoch(args.saved_model, epoch)
+            real_epoch = get_current_epoch(args.saved_model, epoch)
         else:
             real_epoch = epoch
         save_model(rewrite_model, encoder_optim, decoder_optim, real_epoch)
