@@ -257,6 +257,7 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
         for ex in tqdm(training_data):
             resource = ex[0]
             target = torch.Tensor(ex[1]).to(device)
+            length = resource.shape[0]
 
             padd_resource = resource[-args.max_length:]
             padd_resource = np.pad(padd_resource, ((0, args.max_length -
@@ -289,8 +290,9 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
             for ei in range(input_length):
                 encoder_output, encoder_hidden = \
                     rewrite_model.encoder(final_input[:, ei].unsqueeze(0),
-                                          encoder_hidden)
+                                          encoder_hidden, length)
                 encoder_outputs[ei] = encoder_output[0, 0]
+
 
             decoder_input = SOS_token.unsqueeze(0)
             decoder_hidden = encoder_hidden
