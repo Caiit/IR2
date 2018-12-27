@@ -270,17 +270,9 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
             scores = saliency_model(x1, x2)
             best_template = all_temps[torch.argmax(scores)].squeeze(0)
 
-            resource = torch.cat((SOS_token, all_res[0], EOS_token))
-            print("resource", resource.shape)
-            template = torch.cat((SOS_token, best_template, EOS_token))
-            print("template", template.shape)
-            final_input = torch.cat((resource, template), dim=1)
-            print("input", final_input.shape)
-
-
-            # final_input = torch.cat((SOS_token, all_res[0], EOS_token,
-            #                          SOS_token, best_template,
-            #                          EOS_token)).unsqueeze(0)
+            final_input = torch.cat((SOS_token, all_res[0], EOS_token,
+                                     SOS_token, best_template,
+                                     EOS_token)).unsqueeze(0)
 
             encoder_hidden = rewrite_model.encoder.initHidden()
             encoder_optim.zero_grad()
@@ -295,7 +287,6 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
 
 
             for ei in range(input_length):
-                # print(final_input[ei].shape)
                 encoder_output, encoder_hidden = \
                     rewrite_model.encoder(final_input[ei].unsqueeze(0),
                                           encoder_hidden)
