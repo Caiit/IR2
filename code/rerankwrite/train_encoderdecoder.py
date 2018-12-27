@@ -257,15 +257,14 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
         for ex in tqdm(training_data):
             resource = ex[0]
             target = torch.Tensor(ex[1]).to(device)
-            length = torch.tensor(resource.shape[0]).to(device)
-            print("length", length)
 
             padd_resource = resource[-args.max_length:]
             padd_resource = np.pad(padd_resource, ((0, args.max_length -
                                    len(padd_resource)), (0, 0)), "constant",
                                    constant_values=(num_words))
 
-            all_res = torch.Tensor(padd_resource).unsqueeze(0).repeat(20, 1, 1).to(device)
+            all_res = torch.Tensor(padd_resource).unsqueeze(0).repeat(20,
+                                   1, 1).to(device)
             size_inp = all_res.size()
             x1 = all_res.reshape(size_inp[0], size_inp[1]*size_inp[2])
             x2 = all_temps.reshape(size_inp[0], size_inp[1]*size_inp[2])

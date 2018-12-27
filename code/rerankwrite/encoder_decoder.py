@@ -13,9 +13,6 @@ class EncoderRNN(nn.Module):
 
     def forward(self, input, hidden, length):
         output, hidden = self.gru(input, hidden)
-        print("output before gather", output.shape)
-        output = torch.gather(output, 1, length.expand(1, 1, self.hidden_size)-1)
-        print("output after gather", output.shape)
         return output, hidden
 
     def initHidden(self):
