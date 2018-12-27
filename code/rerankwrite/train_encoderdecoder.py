@@ -361,7 +361,7 @@ def test(rewrite_model, saliency_model, test_data, templates, w2emb):
 
             for ei in range(input_length):
                 encoder_output, encoder_hidden = \
-                    rewrite_model.encoder(final_input[ei].unsqueeze(0),
+                    rewrite_model.encoder(final_input[:, ei].unsqueeze(0),
                                           encoder_hidden)
                 encoder_outputs[ei] = encoder_output[0, 0]
 
