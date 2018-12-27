@@ -11,8 +11,12 @@ class EncoderRNN(nn.Module):
         #self.embedding = nn.Embedding(input_size, hidden_size)
         self.gru = nn.GRU(input_size, hidden_size, batch_first=True)
 
-    def forward(self, input, hidden):
+    def forward(self, input, hidden, length):
         output, hidden = self.gru(input, hidden)
+        print("output before gather", output.shape)
+        output = torch.gather(output, 1, length.view(-1, 1, 1).expand(1, 1,
+                              self.hidden_size)-1)
+        print("output after gather", output.shape)
         return output, hidden
 
     def initHidden(self):
