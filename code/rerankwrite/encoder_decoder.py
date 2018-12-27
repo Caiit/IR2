@@ -14,7 +14,7 @@ class EncoderRNN(nn.Module):
     def forward(self, input, hidden, length):
         output, hidden = self.gru(input, hidden)
         print("output before gather", output.shape)
-        output = torch.gather(output, 1, length.view(-1, 1, 1).expand(1, 1,
+        output = torch.gather(output, 1, torch.tensor(length).to(self.device).expand(1, 1,
                               self.hidden_size)-1)
         print("output after gather", output.shape)
         return output, hidden
