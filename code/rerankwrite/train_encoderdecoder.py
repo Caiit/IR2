@@ -40,7 +40,7 @@ def load_saliency_model():
     Loads the saliency model.
     """
 
-    model = torch.load("../../models/rewrite/saliency_0.pt",map_location='cpu')
+    model = torch.load("../../models/rewrite/saliency_0.pt")
     model.eval()
     return model
 
