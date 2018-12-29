@@ -324,20 +324,17 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
             decoder_input = SOS_token.unsqueeze(0)
             decoder_hidden = encoder_hidden
 
-            print(target)
-
             # Teacher forcing: Feed the target as the next input
-            for di in range(target_length-1):
+            for di in range(target_length):
                 decoder_output, decoder_hidden, decoder_attention = \
                     rewrite_model.decoder(decoder_input, decoder_hidden, encoder_outputs)
-                new_tar = target[di+1].unsqueeze(0)
+                new_tar = target[di].unsqueeze(0)
                 #print(w2i[word], word)
                 #loss += loss_func(decoder_output, new_tar)
                 loss += loss_func(decoder_output, new_tar.long())
-                decoder_input = torch.Tensor(target_embs[di+1]).unsqueeze(0).unsqueeze(0).to(device)
+                decoder_input = torch.Tensor(target_embs[di]).unsqueeze(0).unsqueeze(0).to(device)
 
             total_loss += loss
-            print(loss)
 
             loss.backward()
 
