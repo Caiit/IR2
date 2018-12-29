@@ -40,7 +40,7 @@ def load_saliency_model():
     Loads the saliency model.
     """
 
-    model = torch.load("../models/rewrite/saliency_0.pt", map_location='cpu')
+    model = torch.load("../../models/rewrite/saliency_0.pt")
     model.eval()
     return model
 
@@ -154,7 +154,7 @@ def get_all(args):
     w2i = load_pickle(args.w2i)
     num_words = len(w2i)
     w2emb = load_pickle(args.w2emb)
-    templates_emb  = get_templates("../data/templates.pkl")
+    templates_emb  = get_templates("../../data/templates.pkl")
     gensim_model = KeyedVectors.load(args.word2vec, mmap='r')
 
     print("Do the templates...")
@@ -179,7 +179,7 @@ def save_model(model, encoder_optim, decoder_optim, epoch):
     Saves the model so that we can continue training.
     """
 
-    filename = "../models/rewrite/model_encoder_" + str(epoch) + ".pt"
+    filename = "../../models/rewrite/model_encoder_" + str(epoch) + ".pt"
 
     checkpoint = {
         "epoch": epoch,
@@ -258,7 +258,7 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
 
     rewrite_model.train()
 
-    for epoch in range(10):
+    for epoch in range(100):
         print("Epoch: " + str(epoch))
         np.random.shuffle(training_data)
         print("Now do the training...")
@@ -279,7 +279,7 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
                     target_embs.append([0]*100)
 
             target.append(w2i['EOS_token'])
-            target_embs.append(w2emb['EOS_token'])
+            target_embs.append(w2emb['EOS_token'].squeeze(0).numpy())
 
 
             #target = [w2i[w] for w in ex[1] if w in w2i else 0]
@@ -626,14 +626,14 @@ def showAttention(input_sentence, output_words, attentions):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--folder", help="path to file of the dataset.", default="../data")
-    parser.add_argument("--embeddings", help="path to file of the saved embeddings", default="../embeddings/glove_100d.pkl")
-    parser.add_argument("--word2vec", help="path to file of the word2vec embeddings.", default="../embeddings/w2v_vectors.kv")
-    parser.add_argument("--w2i", help="path to file of the saved w2i", default="../embeddings/w2i.pkl")
-    parser.add_argument("--w2emb", help="path to the file of the saved w2emb", default="../embeddings/w2emb.pkl")
+    parser.add_argument("--folder", help="path to file of the dataset.", default="../../data")
+    parser.add_argument("--embeddings", help="path to file of the saved embeddings", default="../../embeddings/glove_100d.pkl")
+    parser.add_argument("--word2vec", help="path to file of the word2vec embeddings.", default="../../embeddings/w2v_vectors.kv")
+    parser.add_argument("--w2i", help="path to file of the saved w2i", default="../../embeddings/w2i.pkl")
+    parser.add_argument("--w2emb", help="path to the file of the saved w2emb", default="../../embeddings/w2emb.pkl")
     parser.add_argument("--max_length", help="max length of sentences", default=110)
-    parser.add_argument("--saved_train", help="where to save the training data", default="../data/rewrite_train.pkl")
-    parser.add_argument("--saved_test", help="where to save the test data", default="../data/rewrite_test.pkl")
+    parser.add_argument("--saved_train", help="where to save the training data", default="../../data/rewrite_train.pkl")
+    parser.add_argument("--saved_test", help="where to save the test data", default="../../data/rewrite_test.pkl")
     parser.add_argument("--saved_model", help="where the model was saved")#, default="../../models/rewrite/model_encoder_10.pt")
     parser.add_argument("--evaluate", help="only evaluate, do not train", default=False, type=bool)
 
