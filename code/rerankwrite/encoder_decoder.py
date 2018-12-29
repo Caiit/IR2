@@ -54,9 +54,10 @@ class DecoderRNN(nn.Module):
         self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
         self.dropout = nn.Dropout(self.dropout_p)
         self.gru = nn.GRU(hidden_size, hidden_size)
+        #self.gru = nn.GRU(output_size, hidden_size)
         self.out = nn.Linear(hidden_size, output_size)
         self.pre_att = nn.Linear(output_size, hidden_size)
-        self.out_probs = nn.Linear(output_size, 9774)
+        self.out_probs = nn.Linear(output_size, 9775)
 
     def forward(self, input, hidden, encoder_outputs):
         output = self.dropout(input)
@@ -76,7 +77,7 @@ class DecoderRNN(nn.Module):
 
         output = self.out_probs(output)
 
-        return output, hidden, attn_weights
+        return output, hidden, 1
 
     def initHidden(self):
         return torch.zeros(1, 1, self.hidden_size, device=self.device)
