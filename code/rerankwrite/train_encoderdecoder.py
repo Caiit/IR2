@@ -278,8 +278,8 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
                 else:
                     target_embs.append([0]*100)
 
-            target.append(w2i['EOS_token'])
-            target_embs.append(w2emb['EOS_token'].squeeze(0).numpy())
+            #target.append(w2i['EOS_token'])
+            #target_embs.append(w2emb['EOS_token'].squeeze(0).numpy())
 
 
             #target = [w2i[w] for w in ex[1] if w in w2i else 0]
