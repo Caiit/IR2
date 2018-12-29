@@ -332,7 +332,7 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
                 #print(w2i[word], word)
                 #loss += loss_func(decoder_output, new_tar)
                 loss += loss_func(decoder_output, new_tar.long())
-                decoder_input = torch.Tensor(target_embs[di+1]).unsqueeze(0).unsqueeze(0)
+                decoder_input = torch.Tensor(target_embs[di+1]).unsqueeze(0).unsqueeze(0).to(device)
 
             total_loss += loss
             loss.backward()
@@ -558,7 +558,7 @@ def test(rewrite_model, saliency_model, test_data, templates, w2emb, w2i):
             target_length = target.size()
 
             encoder_outputs = torch.zeros(args.max_length*2 + 4,
-                                          rewrite_model.encoder.hidden_size)
+                                          rewrite_model.encoder.hidden_size).to(device)
             loss = 0
 
             for ei in range(input_length):
@@ -570,7 +570,7 @@ def test(rewrite_model, saliency_model, test_data, templates, w2emb, w2i):
             decoder_input = SOS_token.unsqueeze(0)
             decoder_hidden = encoder_hidden
 
-            decoder_attentions = torch.zeros((args.max_length*2) + 4, (args.max_length*2) + 4)
+            decoder_attentions = torch.zeros((args.max_length*2) + 4, (args.max_length*2) + 4).to(device)
 
             decoded_words = []
             for di in range(args.max_length):
@@ -589,9 +589,9 @@ def test(rewrite_model, saliency_model, test_data, templates, w2emb, w2i):
                     decoded_words.append(word)
 
                 if word in w2emb.keys():
-                    decoder_input = torch.Tensor(w2emb[word]).unsqueeze(0).unsqueeze(0)
+                    decoder_input = torch.Tensor(w2emb[word]).unsqueeze(0).unsqueeze(0).to(device)
                 else:
-                    decoder_input = torch.Tensor([0]*100).unsqueeze(0).unsqueeze(0)
+                    decoder_input = torch.Tensor([0]*100).unsqueeze(0).unsqueeze(0).to(device)
                 #decoder_input = torch.Tensor(w2emb[word]).unsqueeze(0).unsqueeze(0)
 
             print(decoded_words)
