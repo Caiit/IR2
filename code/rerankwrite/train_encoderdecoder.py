@@ -214,8 +214,8 @@ def run(args):
     # decoder_optimizer = optim.SGD(rewrite_model.decoder.parameters(), lr=0.01,
     #                               momentum=0.9)
 
-    encoder_optimizer = optim.Adam(rewrite_model.encoder.parameters())
-    decoder_optimizer = optim.Adam(rewrite_model.decoder.parameters())
+    encoder_optimizer = optim.Adagrad(rewrite_model.encoder.parameters(), lr=0.01)
+    decoder_optimizer = optim.Adagrad(rewrite_model.decoder.parameters(), lr=0.01)
 
     SOS_token = torch.Tensor([i for i in
                               range(embedding_size)]).unsqueeze(0).to(device)
@@ -223,6 +223,7 @@ def run(args):
                               range(embedding_size)]).unsqueeze(0).to(device)
     w2emb["SOS_token"] = SOS_token.cpu()
     w2emb["EOS_token"] = EOS_token.cpu()
+    w2i["EOS_token"] = len(w2i)
 
     if args.saved_model:
         checkpoint = torch.load(args.saved_model)
@@ -257,7 +258,7 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
 
     rewrite_model.train()
 
-    for epoch in range(100):
+    for epoch in range(10):
         print("Epoch: " + str(epoch))
         np.random.shuffle(training_data)
         print("Now do the training...")
@@ -276,6 +277,9 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
                     target_embs.append(w2emb[w])
                 else:
                     target_embs.append([0]*100)
+
+            target.append(w2i['EOS_token'])
+            target_embs.append(w2emb['EOS_token'])
 
 
             #target = [w2i[w] for w in ex[1] if w in w2i else 0]
@@ -341,6 +345,7 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
             encoder_optim.step()
             decoder_optim.step()
         print("Total_loss: " + str(total_loss.item()))
+        print("Avg_loss: ", total_loss.item()/len(training_data))
 
         if args.saved_model:
             real_epoch = get_current_epoch(args.saved_model, epoch)
@@ -577,9 +582,9 @@ def test(rewrite_model, saliency_model, test_data, templates, w2emb, w2i):
             for di in range(args.max_length):
                 decoder_output, decoder_hidden, decoder_attention = \
                     rewrite_model.decoder(decoder_input, decoder_hidden, encoder_outputs)
-                decoder_attentions[di] = decoder_attention.data
+                #decoder_attentions[di] = decoder_attention.data
                 #word = convert_to_word(decoder_output.cpu(), w2emb)
-                decoder_output = F.softmax(decoder_output)
+                decoder_output = F.softmax(decoder_output, 1)
                 _, max_ind = torch.max(decoder_output, 1)
                 word = list(w2i.keys())[list(w2i.values()).index(max_ind)]
 
@@ -622,7 +627,7 @@ def showAttention(input_sentence, output_words, attentions):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--folder", help="path to file of the dataset.", default="../../data")
-    parser.add_argument("--embeddings", help="path to file of the saved embeddings", default="../../embeddings/glove_50d.pkl")
+    parser.add_argument("--embeddings", help="path to file of the saved embeddings", default="../../embeddings/glove_100d.pkl")
     parser.add_argument("--word2vec", help="path to file of the word2vec embeddings.", default="../../embeddings/w2v_vectors.kv")
     parser.add_argument("--w2i", help="path to file of the saved w2i", default="../../embeddings/w2i.pkl")
     parser.add_argument("--w2emb", help="path to the file of the saved w2emb", default="../../embeddings/w2emb.pkl")
