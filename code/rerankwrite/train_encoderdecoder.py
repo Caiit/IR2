@@ -336,7 +336,6 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
                 #print(w2i[word], word)
                 #loss += loss_func(decoder_output, new_tar)
                 loss += loss_func(decoder_output, new_tar.long())
-                print(torch.Tensor(target_embs[di]))
                 decoder_input = torch.Tensor(target_embs[di]).unsqueeze(0).unsqueeze(0).to(device)
 
             total_loss += loss
