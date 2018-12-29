@@ -324,6 +324,8 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
             decoder_input = SOS_token.unsqueeze(0)
             decoder_hidden = encoder_hidden
 
+            print(target)
+
             # Teacher forcing: Feed the target as the next input
             for di in range(target_length-1):
                 decoder_output, decoder_hidden, decoder_attention = \
@@ -336,6 +338,7 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
 
             total_loss += loss
             print(loss)
+
             loss.backward()
 
             encoder_optim.step()
