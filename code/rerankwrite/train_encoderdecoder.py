@@ -335,6 +335,7 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
                 decoder_input = torch.Tensor(target_embs[di+1]).unsqueeze(0).unsqueeze(0).to(device)
 
             total_loss += loss
+            print(loss)
             loss.backward()
 
             encoder_optim.step()
