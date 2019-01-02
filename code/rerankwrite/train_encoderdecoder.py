@@ -1,10 +1,10 @@
-from encoder_decoder import DecoderRNN, EncoderRNN, CreateResponse
-from saliency_model import SaliencyPrediction
-from data_utils import load_data, load_pickle, get_context, embed_sentence, \
-    clean_sentence, get_resources, get_templates, convert_to_words
 import sys
 sys.path.append("..")
+from encoder_decoder import DecoderRNN, EncoderRNN, CreateResponse
+from saliency_model import SaliencyPrediction
+import data_utils
 from retrieve import retrieve
+
 from gensim.models import Word2Vec, KeyedVectors
 import torch
 import torch.nn as nn
@@ -38,12 +38,12 @@ def convert_to_word(word, w2emb):
     return real_w
 
 
-def load_saliency_model():
+def load_saliency_model(device):
     """
     Loads the saliency model.
     """
 
-    model = torch.load("../../models/rewrite/saliency_0.pt")
+    model = torch.load("../../models/rewrite/saliency.pt", map_location=device)
     model.eval()
     return model
 
@@ -57,47 +57,36 @@ def get_data(filename, data, embeddings, w2i, gensim_model, args):
     global num_words
 
     if os.path.exists(filename):
-        all_examples = load_pickle(filename)
+        all_examples = data_utils.load_pickle(filename)
     else:
         all_examples = []
 
-        for example in tqdm(data):
+        for example in tqdm(data[:10]):
             resources = []
             embedded_resources = []
-            class_indices = []
-            get_resources(example["documents"]["comments"], resources,
-                          embedded_resources, embeddings, w2i)
-            num_comments = len(resources)
-            get_resources(example["documents"]["fact_table"], resources,
-                          embedded_resources, embeddings, w2i)
-            num_facts = len(resources) - num_comments
-            get_resources(example["documents"]["plot"], resources,
-                          embedded_resources, embeddings, w2i)
-            num_plots = len(resources) - num_comments - num_facts
-            get_resources(example["documents"]["review"], resources,
-                          embedded_resources, embeddings, w2i)
-            num_reviews = len(resources) - num_comments - num_facts - num_plots
 
-            # Keep track of where each resource originated from.
-            class_indices += [2]*num_comments
-            class_indices += [3]*num_facts
-            class_indices += [0]*num_plots
-            class_indices += [1]*num_reviews
+            data_utils.get_resources(example["documents"]["comments"],
+                                     resources, embedded_resources)
+            data_utils.get_resources(example["documents"]["fact_table"],
+                                     resources, embedded_resources)
+            data_utils.get_resources(example["documents"]["plot"], resources,
+                                     embedded_resources)
+            data_utils.get_resources(example["documents"]["review"], resources,
+                                     embedded_resources)
 
             chat = example["chat"]
 
-            # Loop over each of the last three utterances in the chat (the context).
+            # Loop over each of the last three utterances in the chat (context).
             for i in range(3, len(chat)-1):
                 last_utterances = chat[i-3:i]
                 response = chat[i+1]
 
                 if len(response) > 0:
                     exp = []
-                    embedded_utterances = [embed_sentence(utterance, embeddings,
-                                           w2i) for utterance in
-                                           last_utterances]
-                    context, embedded_context = get_context(last_utterances,
-                                                            embeddings, w2i)
+                    embedded_utterances = [data_utils.embed_sentence(utterance)
+                                           for utterance in last_utterances]
+                    context, embedded_context = \
+                        data_utils.get_context(last_utterances)
 
                     # Retrieve: Takes context and resources. Uses Word Mover's Distance
                     # to obtain relevant resource candidates.
@@ -110,8 +99,7 @@ def get_data(filename, data, embeddings, w2i, gensim_model, args):
                                            constant_values=(num_words))
 
                     exp.append(padd_resource)
-                    #exp.append(embed_sentence(chat[i+1], embeddings, w2i))
-                    exp.append(clean_sentence(chat[i+1]))
+                    exp.append(data_utils.clean_sentence(chat[i+1]))
                     all_examples.append(tuple(exp))
         save_data(filename, all_examples)
     return all_examples
@@ -147,34 +135,33 @@ def get_all(args):
     global num_words
 
     print("Load data...")
-    data_train = load_data(args.folder + "/train_data.json")
-    data_test = load_data(args.folder + "/dev_data.json")
-    data_train = data_train
-    data_test = data_test
+    data_train = data_utils.load_data(args.folder + "/train_data.json")
+    data_test = data_utils.load_data(args.folder + "/dev_data.json")
     print(len(data_train))
-    embeddings = load_pickle(args.embeddings)
-    embedding_size = len(embeddings[0])
-    w2i = load_pickle(args.w2i)
-    num_words = len(w2i)
-    w2emb = load_pickle(args.w2emb)
-    templates_emb  = get_templates("../../data/templates.pkl")
+
+    data_utils.load_embeddings(args.embeddings)
+    embedding_size = len(data_utils.embeddings[0])
+    data_utils.load_w2i(args.w2i)
+    num_words = len(data_utils.w2i)
+    w2emb = data_utils.load_w2emb(args.w2emb)
+    templates_emb = data_utils.load_templates("../../data/templates.pkl")
     gensim_model = KeyedVectors.load(args.word2vec, mmap='r')
 
     print("Do the templates...")
     templates_emb = [y for x in templates_emb for y in x]
     cut_templates = [temp[-args.max_length:] for temp in templates_emb]
     templates_emb = [np.pad(temp1, ((0, args.max_length-len(temp1)), (0, 0)),
-    "constant", constant_values=(num_words)) for temp1 in
-    cut_templates]
+                     "constant", constant_values=(num_words)) for temp1 in
+                     cut_templates]
     templates_emb = torch.Tensor(templates_emb)
 
     print("Go through training data...")
-    # In the form of (start sent, resource, target)
-    all_training_data = get_data(args.saved_train, data_train, embeddings, w2i,
-    gensim_model, args)
-    all_test_data = get_data(args.saved_test, data_test, embeddings, w2i,
-    gensim_model, args)
-    return all_training_data, all_test_data, templates_emb, w2emb, w2i
+    training_data = get_data(args.saved_train, data_train,
+                             data_utils.embeddings, data_utils.w2i,
+                             gensim_model, args)
+    test_data = get_data(args.saved_test, data_test, data_utils.embeddings,
+                         data_utils.w2i, gensim_model, args)
+    return training_data, test_data, templates_emb, w2emb
 
 
 def save_model(model, encoder_optim, decoder_optim, epoch):
@@ -205,18 +192,13 @@ def run(args):
     global num_words
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    training_data, test_data, templates, w2emb, w2i = get_all(args)
+    training_data, test_data, templates, w2emb = get_all(args)
 
     print("Now load the model...")
     hidden_size = 128
-    rewrite_model = CreateResponse(embedding_size, 128, embedding_size, 0.3,
-                                   args.max_length, device).to(device)
-    saliency_model = load_saliency_model().to(device)
-    # encoder_optimizer = optim.SGD(rewrite_model.encoder.parameters(), lr=0.01,
-    #                               momentum=0.9)
-    # decoder_optimizer = optim.SGD(rewrite_model.decoder.parameters(), lr=0.01,
-    #                               momentum=0.9)
-
+    rewrite_model = CreateResponse(embedding_size, hidden_size, embedding_size,
+                                   0.3, args.max_length, device).to(device)
+    saliency_model = load_saliency_model(device).to(device)
     encoder_optimizer = optim.Adagrad(rewrite_model.encoder.parameters(), lr=0.01)
     decoder_optimizer = optim.Adagrad(rewrite_model.decoder.parameters(), lr=0.01)
 
@@ -226,7 +208,6 @@ def run(args):
                               range(embedding_size)]).unsqueeze(0).to(device)
     w2emb["SOS_token"] = SOS_token.cpu()
     w2emb["EOS_token"] = EOS_token.cpu()
-    w2i["EOS_token"] = len(w2i)
 
     if args.saved_model:
         checkpoint = torch.load(args.saved_model)
@@ -235,14 +216,14 @@ def run(args):
         decoder_optimizer.load_state_dict(checkpoint["decoder_optimizer"])
 
     if args.evaluate:
-        test(rewrite_model, saliency_model, test_data, templates, w2emb, w2i)
+        test(rewrite_model, saliency_model, test_data, templates, w2emb)
     else:
         train(rewrite_model, saliency_model, encoder_optimizer,
-        decoder_optimizer, training_data, templates, w2emb, w2i)
-        test(rewrite_model, saliency_model, test_data, templates, w2emb, w2i)
+              decoder_optimizer, training_data, templates, w2emb)
+        test(rewrite_model, saliency_model, test_data, templates, w2emb)
 
 def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
-          training_data, templates, w2emb, w2i):
+          training_data, templates, w2emb):
     """
     Train model on training data.
     """
@@ -251,17 +232,12 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
     global EOS_token
     global num_words
 
-    print(len(w2i), len(w2emb))
-
-    #emb2i = {emb: i for w in w2emb.keys()}
-
-    #loss_func = nn.MSELoss()
     loss_func = nn.CrossEntropyLoss()
     all_temps = torch.Tensor(templates).to(device)
 
     rewrite_model.train()
 
-    for epoch in range(100):
+    for epoch in range(1):
         print("Epoch: " + str(epoch))
         np.random.shuffle(training_data)
         print("Now do the training...")
@@ -272,8 +248,8 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
             target = []
             target_embs = []
             for w in ex[1]:
-                if w in w2i.keys():
-                    target.append(w2i[w])
+                if w in data_utils.w2i:
+                    target.append(data_utils.w2i[w])
                 else:
                     target.append(0)
                 if w in w2emb.keys():
@@ -281,11 +257,9 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
                 else:
                     target_embs.append([0]*100)
 
-            target.append(w2i['EOS_token'])
+            target.append(data_utils.w2i['EOS_token'])
             target_embs.append(w2emb['EOS_token'].squeeze(0).numpy())
 
-
-            #target = [w2i[w] for w in ex[1] if w in w2i else 0]
             target = torch.Tensor(target).to(device)
 
             padd_resource = resource[-args.max_length:]
@@ -300,11 +274,6 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
             x2 = all_temps.reshape(size_inp[0], size_inp[1]*size_inp[2])
             scores = saliency_model(x1, x2)
             best_template = all_temps[torch.argmax(scores)].squeeze(0)
-
-
-            # resource = torch.cat((SOS_token, all_res[0], EOS_token))
-            # template = torch.cat((SOS_token, best_template, EOS_token))
-            # final_input = torch.cat((resource, template), dim=1).unsqueeze(0)
 
             final_input = torch.cat((SOS_token, all_res[0], EOS_token,
                                      SOS_token, best_template,
@@ -334,21 +303,19 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
             # Teacher forcing: Feed the target as the next input
             for di in range(target_length):
                 decoder_output, decoder_hidden, decoder_attention = \
-                    rewrite_model.decoder(decoder_input, decoder_hidden, encoder_outputs)
+                    rewrite_model.decoder(decoder_input, decoder_hidden,
+                                          encoder_outputs)
                 new_tar = target[di].unsqueeze(0)
-                #print(w2i[word], word)
-                #loss += loss_func(decoder_output, new_tar)
                 loss += loss_func(decoder_output, new_tar.long())
-                decoder_input = torch.Tensor(target_embs[di]).unsqueeze(0).unsqueeze(0).to(device)
+                decoder_input = torch.Tensor(target_embs[di]).unsqueeze(0)
+                decoder_input = decoder_input.unsqueeze(0).to(device)
 
             total_loss += loss
-
             loss.backward()
 
             encoder_optim.step()
             decoder_optim.step()
         print("Total_loss: " + str(total_loss.item()))
-        #print("Avg_loss: ", total_loss.item()/len(training_data))
 
         if args.saved_model:
             real_epoch = get_current_epoch(args.saved_model, epoch)
@@ -357,159 +324,7 @@ def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
         save_model(rewrite_model, encoder_optim, decoder_optim, real_epoch)
 
 
-# def train(rewrite_model, saliency_model, encoder_optim, decoder_optim,
-#           training_data, templates):
-#     """
-#     Train model on training data.
-#     """
-#
-#     global SOS_token
-#     global EOS_token
-#     global num_words
-#
-#     loss_func = nn.MSELoss()
-#     all_temps = torch.Tensor(templates).to(device)
-#
-#     rewrite_model.train()
-#
-#     for epoch in range(100):
-#         print("Epoch: " + str(epoch))
-#         np.random.shuffle(training_data)
-#         print("Now do the training...")
-#         total_loss = 0
-#
-#         for ex in tqdm(training_data):
-#             resource = ex[0]
-#             target = torch.Tensor(ex[1]).to(device)
-#
-#             padd_resource = resource[-args.max_length:]
-#             padd_resource = np.pad(padd_resource, ((0, args.max_length -
-#                                    len(padd_resource)), (0, 0)), "constant",
-#                                    constant_values=(num_words))
-#
-#             all_res = torch.Tensor(padd_resource).unsqueeze(0).repeat(20,
-#                                    1, 1).to(device)
-#             size_inp = all_res.size()
-#             x1 = all_res.reshape(size_inp[0], size_inp[1]*size_inp[2])
-#             x2 = all_temps.reshape(size_inp[0], size_inp[1]*size_inp[2])
-#             scores = saliency_model(x1, x2)
-#             best_template = all_temps[torch.argmax(scores)].squeeze(0)
-#
-#             final_input = torch.cat((SOS_token, all_res[0], EOS_token,
-#                                      SOS_token, best_template,
-#                                      EOS_token)).unsqueeze(0)
-#
-#             encoder_hidden = rewrite_model.encoder.initHidden()
-#             encoder_optim.zero_grad()
-#             decoder_optim.zero_grad()
-#             input_length = final_input.size(1)
-#             target_length = target.size(0)
-#
-#             encoder_outputs = \
-#                 torch.zeros(args.max_length*2 + 4,
-#                             rewrite_model.encoder.hidden_size).to(device)
-#             loss = 0
-#
-#
-#             for ei in range(input_length):
-#                 encoder_output, encoder_hidden = \
-#                     rewrite_model.encoder(final_input[:, ei].unsqueeze(0),
-#                                           encoder_hidden, length)
-#                 encoder_outputs[ei] = encoder_output[0, 0]
-#
-#
-#             decoder_input = SOS_token.unsqueeze(0)
-#             decoder_hidden = encoder_hidden
-#
-#             # Teacher forcing: Feed the target as the next input
-#             for di in range(target_length):
-#                 decoder_output, decoder_hidden = \
-#                     rewrite_model.decoder(decoder_input, decoder_hidden)
-#                 new_tar = target[di].unsqueeze(0)
-#                 loss += loss_func(decoder_output, new_tar)
-#                 decoder_input = new_tar.unsqueeze(0)
-#
-#             total_loss += loss
-#             loss.backward()
-#
-#             encoder_optim.step()
-#             decoder_optim.step()
-#         print("Total_loss: " + str(total_loss.item()))
-#
-#         if args.saved_model:
-#             real_epoch = get_current_epoch(args.saved_model, epoch)
-#         else:
-#             real_epoch = epoch
-#         save_model(rewrite_model, encoder_optim, decoder_optim, real_epoch)
-
-
-# def test(rewrite_model, saliency_model, test_data, templates, w2emb):
-#     """
-#     Test model on evaluation data.
-#     """
-#
-#     global SOS_token
-#     global EOS_token
-#     global num_words
-#
-#     all_temps = torch.Tensor(templates).to(device)
-#
-#     rewrite_model.eval()
-#     print("Now do the testing.. ")
-#     for ex in tqdm(test_data):
-#         with torch.no_grad():
-#             resource = ex[0]
-#             target = torch.Tensor(ex[1]).to(device)
-#
-#             padd_resource = resource[-args.max_length:]
-#             padd_resource = np.pad(padd_resource, ((0, args.max_length -
-#                                    len(padd_resource)), (0, 0)), "constant",
-#                                    constant_values=(num_words))
-#
-#             all_res = torch.Tensor(padd_resource).unsqueeze(0).repeat(20, 1,
-#                                    1).to(device)
-#             size_inp = all_res.size()
-#             x1 = all_res.reshape(size_inp[0], size_inp[1]*size_inp[2])
-#             x2 = all_temps.reshape(size_inp[0], size_inp[1]*size_inp[2])
-#             scores = saliency_model(x1, x2)
-#             best_template = all_temps[torch.argmax(scores)].squeeze(0)
-#
-#             final_input = torch.cat((SOS_token, all_res[0], EOS_token,
-#                                      SOS_token, best_template,
-#                                      EOS_token)).unsqueeze(0)
-#             encoder_hidden = rewrite_model.encoder.initHidden()
-#             input_length = final_input.size(1)
-#             target_length = target.size()
-#
-#             encoder_outputs = torch.zeros(args.max_length*2 + 4,
-#                                           rewrite_model.encoder.hidden_size)
-#             loss = 0
-#
-#             for ei in range(input_length):
-#                 encoder_output, encoder_hidden = \
-#                     rewrite_model.encoder(final_input[:, ei].unsqueeze(0),
-#                                           encoder_hidden)
-#                 encoder_outputs[ei] = encoder_output[0, 0]
-#
-#             decoder_input = SOS_token.unsqueeze(0)
-#             decoder_hidden = encoder_hidden
-#
-#             decoded_words = []
-#             for di in range(args.max_length):
-#                 decoder_output, decoder_hidden = \
-#                     rewrite_model.decoder(decoder_input, decoder_hidden)
-#                 word = convert_to_word(decoder_output.cpu(), w2emb)
-#
-#                 if word == "EOS_token":
-#                     decoded_words.append("<EOS>")
-#                     break
-#                 else:
-#                     decoded_words.append(word)
-#                 decoder_input = decoder_output.unsqueeze(0)
-#
-#             print(decoded_words)
-
-def test(rewrite_model, saliency_model, test_data, templates, w2emb, w2i):
+def test(rewrite_model, saliency_model, test_data, templates, w2emb):
     """
     Test model on evaluation data.
     """
@@ -526,6 +341,7 @@ def test(rewrite_model, saliency_model, test_data, templates, w2emb, w2i):
     all_temps = torch.Tensor(templates).to(device)
 
     rewrite_model.eval()
+
     print("Now do the testing.. ")
     for ex in tqdm(test_data):
         with torch.no_grad():
@@ -533,8 +349,8 @@ def test(rewrite_model, saliency_model, test_data, templates, w2emb, w2i):
             target = []
             target_embs = []
             for w in ex[1]:
-                if w in w2i.keys():
-                    target.append(w2i[w])
+                if w in data_utils.w2i.keys():
+                    target.append(data_utils.w2i[w])
                 else:
                     target.append(0)
                 if w in w2emb.keys():
@@ -542,8 +358,6 @@ def test(rewrite_model, saliency_model, test_data, templates, w2emb, w2i):
                 else:
                     target_embs.append([0]*100)
 
-
-            #target = [w2i[w] for w in ex[1] if w in w2i else 0]
             target = torch.Tensor(target).to(device)
 
             padd_resource = resource[-args.max_length:]
@@ -563,16 +377,13 @@ def test(rewrite_model, saliency_model, test_data, templates, w2emb, w2i):
                                      SOS_token, best_template,
                                      EOS_token)).unsqueeze(0)
 
-            # resource = torch.cat((SOS_token, all_res[0], EOS_token))
-            # template = torch.cat((SOS_token, best_template, EOS_token))
-            # final_input = torch.cat((resource, template), dim=1).unsqueeze(0)
-
             encoder_hidden = rewrite_model.encoder.initHidden()
             input_length = final_input.size(1)
             target_length = target.size()
 
             encoder_outputs = torch.zeros(args.max_length*2 + 4,
-                                          rewrite_model.encoder.hidden_size).to(device)
+                                          rewrite_model.encoder.hidden_size)
+            encoder_outputs = encoder_outputs.to(device)
             loss = 0
 
             for ei in range(input_length):
@@ -584,17 +395,18 @@ def test(rewrite_model, saliency_model, test_data, templates, w2emb, w2i):
             decoder_input = SOS_token.unsqueeze(0)
             decoder_hidden = encoder_hidden
 
-            decoder_attentions = torch.zeros((args.max_length*2) + 4, (args.max_length*2) + 4).to(device)
+            decoder_attentions = torch.zeros((args.max_length*2) + 4,
+                                             (args.max_length*2) + 4).to(device)
 
             decoded_words = []
             for di in range(args.max_length):
                 decoder_output, decoder_hidden, decoder_attention = \
-                    rewrite_model.decoder(decoder_input, decoder_hidden, encoder_outputs)
+                    rewrite_model.decoder(decoder_input, decoder_hidden,
+                                          encoder_outputs)
                 decoder_attentions[di] = decoder_attention.data
-                #word = convert_to_word(decoder_output.cpu(), w2emb)
                 decoder_output = F.softmax(decoder_output, 1)
                 _, max_ind = torch.max(decoder_output, 1)
-                word = list(w2i.keys())[list(w2i.values()).index(max_ind)]
+                word = list(data_utils.w2i.keys())[list(data_utils.w2i.values()).index(max_ind)]
 
                 if word == "EOS_token":
                     decoded_words.append("<EOS>")
@@ -603,18 +415,19 @@ def test(rewrite_model, saliency_model, test_data, templates, w2emb, w2i):
                     decoded_words.append(word)
 
                 if word in w2emb.keys():
-                    decoder_input = torch.Tensor(w2emb[word]).unsqueeze(0).unsqueeze(0).to(device)
+                    decoder_input = torch.Tensor(w2emb[word]).unsqueeze(0)
+                    decoder_input = decoder_input.unsqueeze(0).to(device)
                 else:
-                    decoder_input = torch.Tensor([0]*100).unsqueeze(0).unsqueeze(0).to(device)
-                #decoder_input = torch.Tensor(w2emb[word]).unsqueeze(0).unsqueeze(0)
+                    decoder_input = torch.Tensor([0]*100).unsqueeze(0)
+                    decoder_input = decoder_input.unsqueeze(0).to(device)
 
-            # print(decoded_words)
-            rouge_score = rouge.get_scores(" ".join(decoded_words), " ".join(ex[1]))[0]
+            rouge_score = rouge.get_scores(" ".join(decoded_words),
+                                           " ".join(ex[1]))[0]
             total_rouge_1 += rouge_score["rouge-1"]["f"]
             total_rouge_2 += rouge_score["rouge-2"]["f"]
             total_rouge_l += rouge_score["rouge-l"]["f"]
             # print(rouge_score)
-            #showAttention(ex, decoded_words, decoder_attentions)
+            # showAttention(ex, decoded_words, decoder_attentions)
             # showAttention(convert_to_words(final_input[0].data.cpu().numpy(), w2emb).split(" "), decoded_words, ex[1], decoder_attentions)
     print("ROUGE-1: ", total_rouge_1 / len(test_data))
     print("ROUGE-2: ", total_rouge_2 / len(test_data))
