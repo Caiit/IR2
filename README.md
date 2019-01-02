@@ -3,19 +3,10 @@ Project for IR2 course.
 
 
 To run the code, you firstly need to download pre-trained
-[GloVe](https://nlp.stanford.edu/projects/glove/) embeddings. Right now, we are using 50D Wikipedia
-embeddings due to memory limitations.
+[GloVe](https://nlp.stanford.edu/projects/glove/) embeddings.
 
-1. Run dataset.py and give as input: the the path to the data file, the path to the GloVe embeddings file, the path to where you would like to save the generated embeddings and the path to where you would like to save the generated word to index (w2i) file. Example:
-```python dataset.py ../data/train_data.json ../glove/glove.6B.50d.txt ../data/glove_50d.pkl ../data/w2i.pkl```
+1. Run dataset.py to generate Glove embeddings from the training set, and to generate a word2index and word2embedding file. Additional arguments can be given to use a different pre-trained Glove embeddings file and to adjust the output accordingly.
+```python dataset.py```
 
-2. Install gensim using pip. Example: ```pip3 install gensim```
-
-3. Run main.py and give as input: the path to the data file, the path to where you saved the pretrained GloVe embeddings, the path to where you saved the pretrained Word2Vec embeddings,
-and the path to the word to index file generated with dataset.py. Also give the path to the folder containing the prediction model. Example:
-```python main.py ../data/train_data.json ../data/glove_50d.pkl .../data/w2v_vectors.kv data/w2i.pkl  models/prediction/```
-
-The generated responses need to be evaluated.
-
-1. Install the implementation of the Python implementation of the ROUGE metric. Example: ```pip3 install py-rouge```
-2. Run the evaluation. Example: ```python evaluate.py```
+2. Run main.py to run the Response-Generating Retrieve, Rerank, Rewrite model.
+```python main.py```
