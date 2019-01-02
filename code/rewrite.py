@@ -18,12 +18,12 @@ def convert_to_word(word, w2emb):
     return real_w
 
 
-def load_saliency_model(model_folder, device):
+def load_saliency_model(filename, device):
     """
     Loads the trained saliency model.
     """
 
-    model = torch.load(model_folder + "/saliency.pt", map_location=device)
+    model = torch.load(filename, map_location=device)
     model.eval()
     return model
 
@@ -44,11 +44,13 @@ def load_encoder_decoder_model(model_folder, embedding_size, max_length,
 
 
 class Rewrite():
-    def __init__(self, model_folder, embeddings, w2i, SOS_token, EOS_token,
-                 templates, w2emb, device, max_length=110):
-        self.saliencymodel = load_saliency_model(model_folder, device).to(device)
+    def __init__(self, saved_saliency, saved_rewrite, embeddings, w2i,
+                 SOS_token, EOS_token, templates, w2emb, device,
+                 max_length=110):
         self.embedding_size = len(embeddings[list(w2i.values())[0]])
-        self.encoder_decoder = load_encoder_decoder_model(model_folder,
+        self.saliencymodel = load_saliency_model(saved_saliency,
+                                                 device).to(device)
+        self.encoder_decoder = load_encoder_decoder_model(saved_rewrite,
                                                           self.embedding_size,
                                                           max_length,
                                                           device).to(device)

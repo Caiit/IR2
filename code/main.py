@@ -24,7 +24,7 @@ def run(data, word2vec):
     """
     Retrieve, rerank, rewrite.
     """
-    
+
     global device
 
     emb_size = len(data_utils.embeddings[0])
@@ -43,9 +43,9 @@ def run(data, word2vec):
                   "constant", constant_values=(len(data_utils.w2i)))
                   for temp2 in temp1] for temp1 in templates]
     templates = [torch.Tensor(class_tm) for class_tm in templates]
-    rewrite = Rewrite(args.rewrite_model_folder, data_utils.embeddings,
-                      data_utils.w2i, SOS_token, EOS_token, templates,
-                      w2emb, device)
+    rewrite = Rewrite(args.saliency_model, args.rewrite_model,
+                      data_utils.embeddings, data_utils.w2i, SOS_token,
+                      EOS_token, templates, w2emb, device)
     prediction = ResourcePrediction(args.prediction_model_folder)
 
     rouge = Rouge()
@@ -176,9 +176,10 @@ if __name__ == "__main__":
     parser.add_argument("--prediction_model_folder", help="path to the folder that contains"
                                                           " the prediction model", default="../models/prediction")
     parser.add_argument("--use_gensim", help="indicate whether gensim vectors should be used", type=bool, default=False)
-    parser.add_argument("--rewrite_model_folder", help="where the rewrite models are", default="../models/rewrite/")
     parser.add_argument("--w2emb", help="folder where w2emb is", default="../embeddings/w2emb.pkl")
     parser.add_argument("--templates", help="path to file of the templates", default="../data/templates.pkl")
+    parser.add_argument("--saliency_model", help="file where the saliency model is saved", default="../models/rewrite/saliency.pt")
+    parser.add_argument("--rewrite_model", help="file where the encoder-decoder model is saved", default="../models/rewrite/model_encoder.pt")
     args = parser.parse_args()
 
     main(args)
