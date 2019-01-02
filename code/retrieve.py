@@ -25,6 +25,10 @@ def retrieve(context, resources, gensim_model):
 
 
 def compute_recall(data, word2vec):
+    """
+    Calculates the recall@k.
+    """
+
     k = 3
     recalls = []
     for example in tqdm(data):
@@ -69,8 +73,9 @@ def compute_recall(data, word2vec):
                     # to obtain relevant resource candidates.
                     similarities = retrieve(context, resources, word2vec)
 
-                    recalls.append(int(labels[i+1] in [class_indices[s] for s in sorted(range(len(similarities)), key=lambda i: similarities[i])[:k]]))
-
+                    recalls.append(int(labels[i+1] in [class_indices[s] for s in
+                                   sorted(range(len(similarities)),
+                                   key=lambda i: similarities[i])[:k]]))
     print(np.mean(recalls))
 
 
