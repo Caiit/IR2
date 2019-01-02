@@ -1,7 +1,9 @@
 from encoder_decoder import DecoderRNN, EncoderRNN, CreateResponse
 from saliency_model import SaliencyPrediction
 from data_utils import load_data, load_pickle, get_context, embed_sentence, \
-    clean_sentence, get_resources, get_templates
+    clean_sentence, get_resources, get_templates, convert_to_words
+import sys
+sys.path.append("..")
 from retrieve import retrieve
 from gensim.models import Word2Vec, KeyedVectors
 import torch
@@ -10,6 +12,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from rouge import Rouge
 import matplotlib.pyplot as plt
+from matplotlib import ticker
 import argparse
 import numpy as np
 from tqdm import tqdm
@@ -515,6 +518,11 @@ def test(rewrite_model, saliency_model, test_data, templates, w2emb, w2i):
     global EOS_token
     global num_words
 
+
+    rouge = Rouge()
+    total_rouge_1 = 0
+    total_rouge_2 = 0
+    total_rouge_l = 0
     all_temps = torch.Tensor(templates).to(device)
 
     rewrite_model.eval()
@@ -582,7 +590,7 @@ def test(rewrite_model, saliency_model, test_data, templates, w2emb, w2i):
             for di in range(args.max_length):
                 decoder_output, decoder_hidden, decoder_attention = \
                     rewrite_model.decoder(decoder_input, decoder_hidden, encoder_outputs)
-                #decoder_attentions[di] = decoder_attention.data
+                decoder_attentions[di] = decoder_attention.data
                 #word = convert_to_word(decoder_output.cpu(), w2emb)
                 decoder_output = F.softmax(decoder_output, 1)
                 _, max_ind = torch.max(decoder_output, 1)
@@ -600,29 +608,46 @@ def test(rewrite_model, saliency_model, test_data, templates, w2emb, w2i):
                     decoder_input = torch.Tensor([0]*100).unsqueeze(0).unsqueeze(0).to(device)
                 #decoder_input = torch.Tensor(w2emb[word]).unsqueeze(0).unsqueeze(0)
 
-            print(decoded_words)
+            # print(decoded_words)
+            rouge_score = rouge.get_scores(" ".join(decoded_words), " ".join(ex[1]))[0]
+            total_rouge_1 += rouge_score["rouge-1"]["f"]
+            total_rouge_2 += rouge_score["rouge-2"]["f"]
+            total_rouge_l += rouge_score["rouge-l"]["f"]
+            # print(rouge_score)
             #showAttention(ex, decoded_words, decoder_attentions)
+            # showAttention(convert_to_words(final_input[0].data.cpu().numpy(), w2emb).split(" "), decoded_words, ex[1], decoder_attentions)
+    print("ROUGE-1: ", total_rouge_1 / len(test_data))
+    print("ROUGE-2: ", total_rouge_2 / len(test_data))
+    print("ROUGE-L: ", total_rouge_l / len(test_data))
 
 
-def showAttention(input_sentence, output_words, attentions):
+def showAttention(input_sentence, output_words, true_response, attentions):
+    print(input_sentence)
     # Set up figure with colorbar
     fig = plt.figure()
     ax = fig.add_subplot(111)
     cax = ax.matshow(attentions.numpy(), cmap='bone')
+    cax = ax.matshow(attentions.cpu().numpy(), cmap='cool')
     fig.colorbar(cax)
 
     print(input_sentence)
     # Set up axes
     ax.set_xticklabels([''] + input_sentence.split(' ') +
                        ['<EOS>'], rotation=90)
+    ax.set_xticklabels([''] + input_sentence, rotation=90)
     ax.set_yticklabels([''] + output_words)
 
     # Show label at every tick
     ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
     ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
 
-    plt.show()
+    plt.xlim((0, len(input_sentence) + 1))
+    plt.ylim((0, len(output_words)))
 
+    plt.xlabel(true_response)
+    plt.ylabel("Predicted Response")
+
+    plt.show()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

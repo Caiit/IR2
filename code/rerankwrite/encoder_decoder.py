@@ -77,7 +77,7 @@ class DecoderRNN(nn.Module):
 
         output = self.out_probs(output)
 
-        return output, hidden, 1
+        return output, hidden, attn_weights
 
     def initHidden(self):
         return torch.zeros(1, 1, self.hidden_size, device=self.device)

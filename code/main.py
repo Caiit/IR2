@@ -13,13 +13,17 @@ import data_utils
 import torch
 from rouge import Rouge
 
+import sys
+sys.path.append("rerankwrite")
+from saliency_model import SaliencyPrediction
+
 
 def run(data, word2vec):
     """
     Retrieve, rerank, rewrite.
     """
     prediction = ResourcePrediction(args.prediction_model_folder)
-    templates  = data_utils.get_templates("../data/templates.pkl")
+    templates  = data_utils.get_templates(args.templates)
     w2emb = get_w2emb(args.w2emb)
     emb_size = len(data_utils.embeddings[0])
     SOS_token = torch.Tensor([i for i in range(emb_size)]).unsqueeze(0).to(args.use_gpu)
@@ -31,7 +35,7 @@ def run(data, word2vec):
                                             "constant", constant_values=(len(data_utils.w2i))) for temp2 in temp1]
                                             for temp1 in cut_templates]
     templates_padd = [torch.Tensor(class_tm) for class_tm in flattened_templates_emb_padded]
-    rewrite = Rewrite(args.model_folder, data_utils.embeddings, data_utils.w2i, SOS_token, EOS_token, templates_padd,
+    rewrite = Rewrite(args.rewrite_model_folder, data_utils.embeddings, data_utils.w2i, SOS_token, EOS_token, templates_padd,
                         w2emb, args.use_gpu)
 
     rouge = Rouge()
@@ -100,7 +104,7 @@ def run(data, word2vec):
                 ranked_resources, ranked_classes = rerank(embedded_resources, class_indices,
                                                           similarities, predicted)
 
-                best_resource, best_template = rewrite.rerank(ranked_resources[0], ranked_class[0])
+                best_resource, best_template = rewrite.rerank(ranked_resources[0], ranked_classes[0])
                 best_response = rewrite.rewrite(best_resource, best_template)
                 total += 1
                 rouge_scores = rouge.get_scores(best_response, response)[0]
@@ -108,6 +112,11 @@ def run(data, word2vec):
                 avg_rouge2 += rouge_scores["rouge-2"]["f"]
                 avg_rougeL += rouge_scores["rouge-l"]["f"]
 
+                # print(data_utils.convert_to_words(best_resource, w2emb))
+                # print("___")
+                # print(data_utils.convert_to_words(best_template, w2emb))
+                # print("---")
+                # print(best_response)
 
                 # # Rewrite: Takes best resource candidate and its template and
                 # # generates response.
@@ -137,7 +146,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--file", help="path to file of the dataset.", default="../data/train_data.json")
+    parser.add_argument("--file", help="path to file of the dataset.", default="../data/test_data.json")
     parser.add_argument("--embeddings", help="path to file of the saved embeddings", default="../embeddings/glove_50d.pkl")
     parser.add_argument("--word2vec", help="path to file of the word2vec embeddings.", default="../embeddings/w2v_vectors.kv")
     parser.add_argument("--w2i", help="path to file of the saved w2i", default="../embeddings/w2i.pkl")
@@ -145,9 +154,10 @@ if __name__ == "__main__":
     parser.add_argument("--prediction_model_folder", help="path to the folder that contains"
                                                           " the prediction model", default="../models/prediction")
     parser.add_argument("--use_gensim", help="indicate whether gensim vectors should be used", type=bool, default=False)
-    parser.add_argument("--use_gpu", help="what to use: gpu/cpu", default="cpu")
-    parser.add_argument("--model_folder", help="where the rewrite models are", default="../models/rewrite/")
+    parser.add_argument("--use_gpu", help="what to use: cuda/cpu", default="cuda")
+    parser.add_argument("--rewrite_model_folder", help="where the rewrite models are", default="../models/rewrite/")
     parser.add_argument("--w2emb", help="folder where w2emb is", default="../embeddings/w2emb.pkl")
+    parser.add_argument("--templates", help="path to file of the templates", default="../data/templates.pkl")
     args = parser.parse_args()
 
     main(args)

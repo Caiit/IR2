@@ -98,3 +98,16 @@ def get_resources(document, resources, embedded_resources, embeddings, w2i):
 
 def get_templates(filename):
     return load_pickle(filename)
+
+
+def convert_to_words(complete_sent_emb, w2emb):
+    '''
+    Convert embeddings to wordsself.
+    '''
+    output_sentence = []
+    for word in complete_sent_emb:
+        emb_dists = [torch.norm(torch.Tensor(word) - torch.Tensor(embs)).item() for embs in list(w2emb.values())]
+        index = np.argmin(emb_dists)
+        output_sentence.append(list(w2emb.keys())[index])
+
+    return " ".join(output_sentence)
