@@ -11,6 +11,7 @@ from resource_prediction import ResourcePrediction
 from data_utils import get_w2emb
 import data_utils
 import torch
+from rouge import Rouge
 
 
 def run(data, word2vec):
@@ -32,6 +33,12 @@ def run(data, word2vec):
     templates_padd = [torch.Tensor(class_tm) for class_tm in flattened_templates_emb_padded]
     rewrite = Rewrite(args.model_folder, data_utils.embeddings, data_utils.w2i, SOS_token, EOS_token, templates_padd,
                         w2emb, args.use_gpu)
+
+    rouge = Rouge()
+    total = 0
+    avg_rouge1 = 0
+    avg_rouge2 = 0
+    avg_rougeL = 0
 
     for example in data:
         resources = []
@@ -94,7 +101,12 @@ def run(data, word2vec):
                                                           similarities, predicted)
 
                 best_resource, best_template = rewrite.rerank(ranked_resources[0], ranked_class[0])
-                response = rewrite.rewrite(best_resource, best_template)
+                best_response = rewrite.rewrite(best_resource, best_template)
+                total += 1
+                rouge_scores = rouge.get_scores(best_response, response)[0]
+                avg_rouge1 += rouge_scores["rouge-1"]["f"]
+                avg_rouge2 += rouge_scores["rouge-2"]["f"]
+                avg_rougeL += rouge_scores["rouge-l"]["f"]
 
 
                 # # Rewrite: Takes best resource candidate and its template and
@@ -105,6 +117,9 @@ def run(data, word2vec):
                 # response = rewrite.rewrite(best_response, best_template)
                 # # Rewrite from embedding to words:
                 # print("Final response: \n", response)
+    print("Average rouge1: " + str(avg_rouge1/total))
+    print("Average rouge2: " + str(avg_rouge2/total))
+    print("Average rougel: " + str(avg_rougeL/total))
 
 
 def main(args):
