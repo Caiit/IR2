@@ -3,6 +3,8 @@ import torch.nn as nn
 from torch import optim
 import torch.nn.functional as F
 
+MAX_LENGTH = 110
+
 class EncoderLSTM(nn.Module):
     def __init__(self, input_size, out_size, hidden_size, num_layers=2, drop_out=0.3,
                 batch_size=1, out_size_bi=1):
