@@ -1,6 +1,9 @@
 import json
 import tensorflow as tf
 
+# Block tensorflows outputs
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
 
 class ResourcePrediction():
     def __init__(self, model_folder):
@@ -17,6 +20,7 @@ class ResourcePrediction():
             sess = tf.Session(config=session_conf)
 
             # TODO: do this in load instead of every time?
+            # Can't do it on my pc since cuda out of memory, so we have to load it every time
             with sess.as_default():
                 saver = tf.train.import_meta_graph("{}.meta".format(self.model_file))
                 saver.restore(sess, self.model_file)
