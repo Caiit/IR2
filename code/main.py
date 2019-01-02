@@ -12,6 +12,7 @@ import data_utils
 import torch
 from rouge import Rouge
 from tqdm import tqdm
+from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 
 import sys
 sys.path.append("rerankwrite")
@@ -53,6 +54,9 @@ def run(data, word2vec):
     avg_rouge1 = 0
     avg_rouge2 = 0
     avg_rougeL = 0
+    avg_bleu   = 0
+
+    smooth = SmoothingFunction()
 
     for example in tqdm(data):
         resources = []
@@ -107,8 +111,10 @@ def run(data, word2vec):
                 padded_utterance = np.pad(padded_utterance,
                     ((0, args.max_length - len(padded_utterance)), (0, 0)),
                     "constant", constant_values=(constant_values))
-                predicted = prediction.predict(np.expand_dims(padded_utterance,
-                                                              0))
+                if args.prediction:
+                    predicted = prediction.predict(np.expand_dims(padded_utterance, 0))
+                else:
+                    predicted = np.array([[0.25, 0.25, 0.25, 0.25]])
 
                 # Rerank Resources: Takes ranked resource candidates and class
                 # prediction and reranks them.
@@ -130,24 +136,12 @@ def run(data, word2vec):
                 avg_rouge1 += rouge_scores["rouge-1"]["f"]
                 avg_rouge2 += rouge_scores["rouge-2"]["f"]
                 avg_rougeL += rouge_scores["rouge-l"]["f"]
+                avg_bleu += sentence_bleu([response], best_response, smoothing_function=smooth.method1)
 
-                # print(data_utils.convert_to_words(best_resource, w2emb))
-                # print("___")
-                # print(data_utils.convert_to_words(best_template, w2emb))
-                # print("---")
-                # print(best_response)
-
-                # # Rewrite: Takes best resource candidate and its template and
-                # # generates response.
-                # best_response, best_template = rewrite.rerank(templates, ranked_resources, ranked_classes)
-                #
-                # # Response here is still embedding!
-                # response = rewrite.rewrite(best_response, best_template)
-                # # Rewrite from embedding to words:
-                # print("Final response: \n", response)
     print("Average rouge1: " + str(avg_rouge1/total))
     print("Average rouge2: " + str(avg_rouge2/total))
     print("Average rougel: " + str(avg_rougeL/total))
+    print("Average bleu: " + str(avg_bleu/total))
 
 
 def main(args):
@@ -180,6 +174,7 @@ if __name__ == "__main__":
     parser.add_argument("--templates", help="path to file of the templates", default="../data/templates.pkl")
     parser.add_argument("--saliency_model", help="file where the saliency model is saved", default="../models/rewrite/saliency.pt")
     parser.add_argument("--rewrite_model", help="file where the encoder-decoder model is saved", default="../models/rewrite/model_encoder.pt")
+    parser.add_argument('--no_prediction', dest='prediction', action='store_false', help="indicate whether to use the prediction module or not")
+    parser.set_defaults(prediction=True)
     args = parser.parse_args()
-
     main(args)
