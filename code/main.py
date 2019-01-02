@@ -12,6 +12,7 @@ from data_utils import get_w2emb
 import data_utils
 import torch
 from rouge import Rouge
+from tqdm import tqdm
 
 import sys
 sys.path.append("rerankwrite")
@@ -44,7 +45,7 @@ def run(data, word2vec):
     avg_rouge2 = 0
     avg_rougeL = 0
 
-    for example in data:
+    for example in tqdm(data):
         resources = []
         embedded_resources = []
         class_indices = []

@@ -64,7 +64,7 @@ class Rewrite():
         # Inputs are both embeddings
         final_input = torch.cat((self.SOS, torch.Tensor(best_response).to(self.device), self.EOS, self.SOS, best_template.to(self.device), self.EOS)).unsqueeze(0)
         encoder_hidden = self.encoder_decoder.encoder.initHidden()
-        input_length = final_input.size(0)
+        input_length = final_input.size(1)
 
         encoder_outputs = torch.zeros(self.max_length*2 + 4, self.encoder_decoder.encoder.hidden_size).to(self.device)
 
