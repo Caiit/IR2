@@ -83,15 +83,15 @@ class Rewrite():
         return padd_resource, temp
 
 
-    def rewrite(self, best_response, best_template):
+    def rewrite(self, best_resource, best_template):
         """
-        Rewrites the best response and the best template into a single response.
+        Rewrites the best resource and the best template into a single response.
         """
 
-        best_response = torch.Tensor(best_response).to(self.device)
+        best_resource = torch.Tensor(best_resource).to(self.device)
         best_template = best_template.to(self.device)
 
-        input = torch.cat((self.SOS, best_response, self.EOS,
+        input = torch.cat((self.SOS, best_resource, self.EOS,
                            self.SOS, best_template, self.EOS)).unsqueeze(0)
         encoder_hidden = self.encoder_decoder.encoder.initHidden()
         input_length = input.size(1)

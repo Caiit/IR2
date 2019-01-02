@@ -24,6 +24,7 @@ def run(data, word2vec):
     """
     Retrieve, rerank, rewrite.
     """
+    
     global device
 
     emb_size = len(data_utils.embeddings[0])
@@ -106,17 +107,23 @@ def run(data, word2vec):
                 padded_utterance = np.pad(padded_utterance,
                     ((0, args.max_length - len(padded_utterance)), (0, 0)),
                     "constant", constant_values=(constant_values))
-                predicted = prediction.predict(np.expand_dims(padded_utterance, 0))
+                predicted = prediction.predict(np.expand_dims(padded_utterance,
+                                                              0))
 
-                # Rerank: Takes ranked resource candidates and class prediction
-                # and reranks them.
+                # Rerank Resources: Takes ranked resource candidates and class
+                # prediction and reranks them.
                 ranked_resources, ranked_classes = rerank(embedded_resources,
                                                           class_indices,
                                                           similarities,
                                                           predicted)
 
+                # Rerank Templates: Takes best resource and ranks the templates
+                # accordingly. Returns the best template.
                 best_resource, best_template = rewrite.rerank(ranked_resources[0],
                                                               ranked_classes[0])
+
+                # Rewrite: Takes the best resource and best template and
+                # rewrites them into a single response.
                 best_response = rewrite.rewrite(best_resource, best_template)
                 total += 1
                 rouge_scores = rouge.get_scores(best_response, response)[0]
