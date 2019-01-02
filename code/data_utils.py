@@ -60,6 +60,7 @@ def load_w2i(file_path):
 
     with open(file_path, "rb") as f:
         w2i = pickle.load(f)
+    w2i["EOS_token"] = len(w2i)
 
 
 def get_context(last_utterances):

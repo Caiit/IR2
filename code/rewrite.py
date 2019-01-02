@@ -14,8 +14,8 @@ def convert_to_word(word, w2emb):
     return real_w
 
 
-def load_saliency_model(model_folder):
-    model = torch.load(model_folder + "/saliency.pt")
+def load_saliency_model(model_folder, device):
+    model = torch.load(model_folder + "/saliency.pt", map_location=device)
     model.eval()
     return model
 
@@ -23,7 +23,7 @@ def load_saliency_model(model_folder):
 def load_encoder_decoder_model(model_folder, embedding_size, max_length, device):
     model = CreateResponse(embedding_size, 128, embedding_size, 0.3, max_length,
                            device).to(device)
-    checkpoint = torch.load(model_folder + "model_encoder.pt")
+    checkpoint = torch.load(model_folder + "model_encoder.pt", map_location=device)
     model.load_state_dict(checkpoint["state_dict"])
     model.eval()
     return model
@@ -33,7 +33,7 @@ class Rewrite():
     def __init__(self, model_folder, embeddings, w2i, SOS_token, EOS_token, templates, w2emb, device, max_length=110):
         #print("Please replace me with the real class")
         ## TODO: load model
-        self.saliencymodel = load_saliency_model(model_folder).to(device)
+        self.saliencymodel = load_saliency_model(model_folder, device).to(device)
         self.embedding_size = len(embeddings[list(w2i.values())[0]])
         self.encoder_decoder = load_encoder_decoder_model(model_folder, self.embedding_size, max_length, device).to(device)
         self.embeddings = embeddings
