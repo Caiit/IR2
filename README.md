@@ -18,3 +18,6 @@ To run the code, you firstly need to download pre-trained
 
 ## Dependencies
 - Rouge: pip install rouge
+- tqdm: pip install tqdm
+- nltk: pip install nltk
+- gensim
