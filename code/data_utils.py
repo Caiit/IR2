@@ -13,6 +13,16 @@ global embeddings
 global use_gensim
 
 
+def load_pickle(file_path):
+    """
+    Loads the saved Pickle file.
+    """
+
+    with open(file_path, "rb") as f:
+        output = pickle.load(f)
+    return output
+
+
 def load_gensim(filename):
     """
     Loads Gensim model.
@@ -61,6 +71,24 @@ def load_w2i(file_path):
     with open(file_path, "rb") as f:
         w2i = pickle.load(f)
     w2i["EOS_token"] = len(w2i)
+
+
+def load_w2emb(filename):
+    """
+    Get the w2emb from a pickle file.
+    """
+    global w2emb
+
+    with open(filename, "rb") as f:
+        return pickle.load(f)
+
+
+def load_templates(filename):
+    """
+    Get the templates from a pickle file.
+    """
+    with open(filename, "rb") as f:
+        return pickle.load(f)
 
 
 def get_context(last_utterances):
@@ -149,28 +177,15 @@ def get_resources(document, resources, embedded_resources):
 
 
 def convert_to_words(complete_sent_emb, w2emb):
-    '''
-    Convert embeddings to wordsself.
-    '''
+    """
+    Convert embeddings to words.
+    """
     output_sentence = []
+
     for word in complete_sent_emb:
-        emb_dists = [torch.norm(torch.Tensor(word) - torch.Tensor(embs)).item() for embs in list(w2emb.values())]
+        emb_dists = [torch.norm(torch.Tensor(word) - torch.Tensor(embs)).item()
+                     for embs in list(w2emb.values())]
         index = np.argmin(emb_dists)
         output_sentence.append(list(w2emb.keys())[index])
 
     return " ".join(output_sentence)
-
-
-def get_templates(filename):
-    '''
-    Get the templates from a pickle file.
-    '''
-    with open(filename, "rb") as f:
-        return pickle.load(f)
-
-def get_w2emb(filename):
-    '''
-    Get the w2emb from a pickle file.
-    '''
-    with open(filename, "rb") as f:
-        return pickle.load(f)

@@ -4,8 +4,8 @@ import torch.nn as nn
 class SaliencyPrediction(nn.Module):
     def __init__(self, embedding_size, device):
         super(SaliencyPrediction, self).__init__()
-        # Maybe extend this further?
-        self.bilinear = nn.Bilinear(embedding_size, embedding_size, 1).to(device)
+        self.bilinear = nn.Bilinear(embedding_size, embedding_size,
+                                    1).to(device)
         self.bn = nn.BatchNorm1d(1)
         self.sigmoid = nn.Sigmoid()
 
