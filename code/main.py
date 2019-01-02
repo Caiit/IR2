@@ -8,7 +8,6 @@ from rerank import rerank
 from retrieve import retrieve
 from rewrite import Rewrite
 from resource_prediction import ResourcePrediction
-from data_utils import get_w2emb
 import data_utils
 import torch
 from rouge import Rouge
@@ -18,26 +17,35 @@ import sys
 sys.path.append("rerankwrite")
 from saliency_model import SaliencyPrediction
 
+global device
+
 
 def run(data, word2vec):
     """
     Retrieve, rerank, rewrite.
     """
-    prediction = ResourcePrediction(args.prediction_model_folder)
-    templates  = data_utils.get_templates(args.templates)
-    w2emb = get_w2emb(args.w2emb)
+    global device
+
     emb_size = len(data_utils.embeddings[0])
-    SOS_token = torch.Tensor([i for i in range(emb_size)]).unsqueeze(0).to(args.use_gpu)
-    EOS_token = torch.Tensor([i+1 for i in range(emb_size)]).unsqueeze(0).to(args.use_gpu)
+    SOS_token = torch.Tensor([i for i
+                              in range(emb_size)]).unsqueeze(0).to(device)
+    EOS_token = torch.Tensor([i+1 for i
+                              in range(emb_size)]).unsqueeze(0).to(device)
+    w2emb = data_utils.load_w2emb(args.w2emb)
     w2emb["SOS_token"] = SOS_token.cpu()
     w2emb["EOS_token"] = EOS_token.cpu()
-    cut_templates = [[temp[-args.max_length:] for temp in part_templ] for part_templ in templates]
-    flattened_templates_emb_padded = [[np.pad(temp2, ((0, args.max_length - len(temp2)), (0, 0)),
-                                            "constant", constant_values=(len(data_utils.w2i))) for temp2 in temp1]
-                                            for temp1 in cut_templates]
-    templates_padd = [torch.Tensor(class_tm) for class_tm in flattened_templates_emb_padded]
-    rewrite = Rewrite(args.rewrite_model_folder, data_utils.embeddings, data_utils.w2i, SOS_token, EOS_token, templates_padd,
-                        w2emb, args.use_gpu)
+
+    templates = data_utils.load_templates(args.templates)
+    templates = [[temp[-args.max_length:] for temp in part_templ]
+                 for part_templ in templates]
+    templates = [[np.pad(temp2, ((0, args.max_length - len(temp2)), (0, 0)),
+                  "constant", constant_values=(len(data_utils.w2i)))
+                  for temp2 in temp1] for temp1 in templates]
+    templates = [torch.Tensor(class_tm) for class_tm in templates]
+    rewrite = Rewrite(args.rewrite_model_folder, data_utils.embeddings,
+                      data_utils.w2i, SOS_token, EOS_token, templates,
+                      w2emb, device)
+    prediction = ResourcePrediction(args.prediction_model_folder)
 
     rouge = Rouge()
     total = 0
@@ -81,13 +89,13 @@ def run(data, word2vec):
                                        utterance in last_utterances]
                 context, embedded_context = data_utils.get_context(last_utterances)
 
-                # Retrieve: Takes context and resources. Uses Word Mover's Distance
-                # to obtain relevant resource candidates.
+                # Retrieve: Takes context and resources. Uses Word Mover's
+                # Distance to obtain relevant resource candidates.
                 similarities = retrieve(context, resources, word2vec)
 
-                # Predict: Takes context and predicts the category of the resource.
-                # Take the maximum length as max and pad the context to maximum
-                # length if it is too short.
+                # Predict: Takes context and predicts the category of the
+                # resource. Take the maximum length as max and pad the context
+                # to maximum length if it is too short.
                 if args.use_gensim:
                     constant_values = len(data_utils.embeddings.index2word)
                 else:
@@ -100,12 +108,15 @@ def run(data, word2vec):
                     "constant", constant_values=(constant_values))
                 predicted = prediction.predict(np.expand_dims(padded_utterance, 0))
 
-                # Rerank: Takes ranked resource candidates and class prediction and
-                # reranks them.
-                ranked_resources, ranked_classes = rerank(embedded_resources, class_indices,
-                                                          similarities, predicted)
+                # Rerank: Takes ranked resource candidates and class prediction
+                # and reranks them.
+                ranked_resources, ranked_classes = rerank(embedded_resources,
+                                                          class_indices,
+                                                          similarities,
+                                                          predicted)
 
-                best_resource, best_template = rewrite.rerank(ranked_resources[0], ranked_classes[0])
+                best_resource, best_template = rewrite.rerank(ranked_resources[0],
+                                                              ranked_classes[0])
                 best_response = rewrite.rewrite(best_resource, best_template)
                 total += 1
                 rouge_scores = rouge.get_scores(best_response, response)[0]
@@ -133,6 +144,9 @@ def run(data, word2vec):
 
 
 def main(args):
+    global device
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     word2vec = KeyedVectors.load(args.word2vec, mmap='r')
     data = data_utils.load_data(args.file)
 
@@ -155,7 +169,6 @@ if __name__ == "__main__":
     parser.add_argument("--prediction_model_folder", help="path to the folder that contains"
                                                           " the prediction model", default="../models/prediction")
     parser.add_argument("--use_gensim", help="indicate whether gensim vectors should be used", type=bool, default=False)
-    parser.add_argument("--use_gpu", help="what to use: cuda/cpu", default="cuda")
     parser.add_argument("--rewrite_model_folder", help="where the rewrite models are", default="../models/rewrite/")
     parser.add_argument("--w2emb", help="folder where w2emb is", default="../embeddings/w2emb.pkl")
     parser.add_argument("--templates", help="path to file of the templates", default="../data/templates.pkl")

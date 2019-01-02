@@ -89,7 +89,7 @@ class Rewrite():
         """
 
         best_response = torch.Tensor(best_response).to(self.device)
-        best_template = best_template.to(device)
+        best_template = best_template.to(self.device)
 
         input = torch.cat((self.SOS, best_response, self.EOS,
                            self.SOS, best_template, self.EOS)).unsqueeze(0)
