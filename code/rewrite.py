@@ -53,24 +53,31 @@ class Rewrite():
     def rewrite(self, best_response, best_template):
         # Inputs are both embeddings
 
-        final_input = torch.cat((self.SOS, best_response, self.EOS, self.SOS, best_template, self.EOS)).unsqueeze(0)
-        encoder_hidden = self.encoder_decoder.encoder.initHidden()
-        input_length = final_input.size(0)
-        target_length = target.size(0)
+        final_input = torch.cat((self.SOS_token, best_response, self.EOS_token,
+                                 self.SOS_token, best_template,
+                                 self.EOS_token)).unsqueeze(0)
 
-        encoder_outputs = torch.zeros(self.max_length*2 + 4, self.encoder_decoder.encoder.hidden_size)
+        encoder_hidden = self.encoder_decoder.encoder.initHidden()
+        input_length = final_input.size(1)
+
+        encoder_outputs = \
+            torch.zeros(self.max_length*2 + 4,
+                        self.encoder_decoder.encoder.hidden_size).to(self.device)
         loss = 0
 
         for ei in range(input_length):
-            encoder_output, encoder_hidden = self.encoder_decoder.encoder(final_input[ei].unsqueeze(0), encoder_hidden)
+            encoder_output, encoder_hidden = \
+                self.encoder_decoder.encoder(final_input[:, ei].unsqueeze(0),
+                                      encoder_hidden)
             encoder_outputs[ei] = encoder_output[0, 0]
 
-        decoder_input = self.SOS.unsqueeze(0)
+        decoder_input = self.SOS_token.unsqueeze(0)
         decoder_hidden = encoder_hidden
 
         decoded_words = []
         for di in range(self.max_length):
-            decoder_output, decoder_hidden = self.encoder_decoder.decoder(decoder_input, decoder_hidden)
+            decoder_output, decoder_hidden, decoder_attention = \
+                self.encoder_decoder.decoder(decoder_input, decoder_hidden, encoder_outputs)
             word = convert_to_word(decoder_output.cpu(), self.w2emb)
             if word == "EOS_token":
                 decoded_words.append("<EOS>")
