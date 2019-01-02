@@ -28,7 +28,7 @@ def load_saliency_model(filename, device):
     return model
 
 
-def load_encoder_decoder_model(model_folder, embedding_size, max_length,
+def load_encoder_decoder_model(filename, embedding_size, max_length,
                                device):
     """
     Loads the trained Rewrite (Encoder-Decoder) model.
@@ -36,8 +36,7 @@ def load_encoder_decoder_model(model_folder, embedding_size, max_length,
 
     model = CreateResponse(embedding_size, 128, embedding_size, 0.3, max_length,
                            device).to(device)
-    checkpoint = torch.load(model_folder + "model_encoder.pt",
-                            map_location=device)
+    checkpoint = torch.load(filename, map_location=device)
     model.load_state_dict(checkpoint["state_dict"])
     model.eval()
     return model
