@@ -4,6 +4,7 @@ from data_utils import embed_sentence
 import torch
 import torch.nn as nn
 import numpy as np
+import torch.nn.functional as F
 
 def convert_to_word(word, w2emb):
     emb_dists = [torch.norm(word - torch.Tensor(embs)).item() for embs in list(w2emb.values())]
@@ -74,15 +75,44 @@ class Rewrite():
         decoder_input = self.SOS_token.unsqueeze(0)
         decoder_hidden = encoder_hidden
 
+        decoder_attentions = torch.zeros((self.max_length*2) + 4, (self.max_length*2) + 4).to(device)
+
         decoded_words = []
         for di in range(self.max_length):
             decoder_output, decoder_hidden, decoder_attention = \
                 self.encoder_decoder.decoder(decoder_input, decoder_hidden, encoder_outputs)
-            word = convert_to_word(decoder_output.cpu(), self.w2emb)
+
+            decoder_output = F.softmax(decoder_output, 1)
+            _, max_ind = torch.max(decoder_output, 1)
+            word = list(self.w2i.keys())[list(self.w2i.values()).index(max_ind)]
+
             if word == "EOS_token":
                 decoded_words.append("<EOS>")
                 break
             else:
                 decoded_words.append(word)
-            decoder_input = decoder_output.unsqueeze(0)
+
+            if word in self.w2emb.keys():
+                decoder_input = torch.Tensor(self.w2emb[word]).unsqueeze(0).unsqueeze(0).to(device)
+            else:
+                decoder_input = torch.Tensor([0]*100).unsqueeze(0).unsqueeze(0).to(device)
         return " ".join(decoded_words)
+
+def showAttention(input_sentence, output_words, attentions):
+    # Set up figure with colorbar
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    cax = ax.matshow(attentions.numpy(), cmap='bone')
+    fig.colorbar(cax)
+
+    print(input_sentence)
+    # Set up axes
+    ax.set_xticklabels([''] + input_sentence.split(' ') +
+                       ['<EOS>'], rotation=90)
+    ax.set_yticklabels([''] + output_words)
+
+    # Show label at every tick
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+
+    plt.show()
