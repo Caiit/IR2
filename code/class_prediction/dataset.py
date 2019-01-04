@@ -9,7 +9,7 @@ global embeddings
 global w2i
 
 
-def load_data_and_labels(filename, data_folder, max_length, using_gensim,
+def load_data_and_labels(filename, max_length, using_gensim,
                          embedding_file, w2i_file):
     """Load sentences and labels"""
     global embeddings
@@ -39,16 +39,6 @@ def load_data_and_labels(filename, data_folder, max_length, using_gensim,
                 label_hot[labels[i + 1]] = 1  # Label of response
                 x_raw.append(embed_sentence(utterance, max_length))
                 y_raw.append((label_hot))
-        # OLD: get whole context as input and response label
-        # for i in range(3, len(chat) - 1):
-        #     # Don't take the None into account, since its for speaker 1
-        #     if labels[i + 1] < 4:
-        #         sentence = " ".join(chat[i - 3: i])
-        #         if len(sentence.split()) > 0:
-        #             x_raw.append(embed_sentence(sentence, max_length))
-        #             label_hot = np.zeros(4)
-        #             label_hot[labels[i + 1]] = 1  # Label of response
-        #             y_raw.append(label_hot)
     return x_raw, y_raw
 
 

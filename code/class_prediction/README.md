@@ -2,7 +2,5 @@
 
 from https://github.com/jiegzhan/multi-class-text-classification-cnn
 
-1. Run train.py in and give the path to the data folder, the path to
- the parameters config file (`parameters.json`) and the path to the embeddings.
- Example:
-```python train.py ../../data/ parameters.json ../../data/embeddings.pkl```
+1. Run train.py to train the CNN:
+```python train.py```
