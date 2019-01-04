@@ -7,7 +7,7 @@ import re
 import string
 import torch.nn.functional as F
 import torch
-from templategenerator import TemplateGenerator
+#from templategenerator import TemplateGenerator
 from gensim.summarization.summarizer import summarize
 from gensim.summarization.textcleaner import clean_text_by_sentences
 from sklearn.cluster import KMeans
@@ -40,7 +40,7 @@ def batches(data, batch_size):
         yield data[i:i + batch_size]
 
 def run(data, resource_type):
-    """ Generates the five templates. 
+    """ Generates the five templates.
     """
 
     global embeddings
@@ -68,7 +68,6 @@ def run(data, resource_type):
                     embedded_sentence[i] = embedding
                     w2emb[w] = embedding
                 else:
-                    print(w)
                     embedded_sentence[i] = 0
             if len(embedded_sentence) > 0 and len(embedded_sentence) < max_length:
                 avg_embedded.append(avg_embed_sentence(embedded_sentence))
@@ -76,11 +75,11 @@ def run(data, resource_type):
                 all_sents.append(sent_temp)
 
     print('Now doing kmeans....')
-    kmeans = KMeans(n_clusters=5)
+    kmeans = KMeans(n_clusters=args.n_templates)
     trying = kmeans.fit_predict(avg_embedded)
     clusters = kmeans.cluster_centers_
 
-    print('Now getting the 5 sentences.....')
+    print('Now getting the', args.n_templates, 'sentences.....')
     best_sents = []
     for i in range(len(clusters)):
         cluster = clusters[i]
@@ -98,7 +97,7 @@ def run(data, resource_type):
 
     print('Saving now')
 
-    pkl_file_name = "embeddings_5_" + resource_type + ".pkl"
+    pkl_file_name = "embeddings_" + str(args.n_templates) + "_" + resource_type + ".pkl"
     text_file = open(pkl_file_name, "wb")
     pickle.dump(best_sents, text_file)
     text_file.close()
@@ -151,9 +150,9 @@ def get_resources2(document, resources, max_length):
 
 
 def avg_embed_sentence(embedded_sentence):
-    """ 
-    Averages the word embeddings of one sentence. 
-    """ 
+    """
+    Averages the word embeddings of one sentence.
+    """
     avg_sent = sum(embedded_sentence)/len(embedded_sentence)
     return avg_sent
 
@@ -237,11 +236,11 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("file", help="path to file of the dataset.")
-    parser.add_argument("embeddings", help="path to file of the saved embeddings")
-    parser.add_argument("w2i", help="path to file of the saved w2i")
-    parser.add_argument("resource_type", type=str, help="which resource_type")
-    parser.add_argument("epochs", type=int, help="how many epochs?")
+    parser.add_argument("--file", help="path to file of the dataset.", default="../../data/train_data.json")
+    parser.add_argument("--embeddings", help="path to file of the saved embeddings", default="../../embeddings/glove_100d.pkl")
+    parser.add_argument("--w2i", help="path to file of the saved w2i", default="../../embeddings/w2i.pkl")
+    parser.add_argument("--resource_type", type=str, help="which resource type: plot, fact_table, comments, review", default="plot")
+    parser.add_argument("--n_templates", type=int, help="amount templates per resource", default="5")
     args = parser.parse_args()
 
     main(args)
